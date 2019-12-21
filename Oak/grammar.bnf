@@ -1,0 +1,37 @@
+<statement block> ::= { [<statements>] }
+
+<statements> ::= <statement> | <statements><statement>
+<statement> ::= <function call> | <assignment statement>
+
+<assignment statement> ::= <assignment> | <conditional>
+
+<assignment> ::= <assignment left> <assigment oper> <expr>
+<assignment left> ::= <var> | <assignment statement>
+<var> ::= <name>
+<name> ::= "_" | <letter> | "_"<name char> | <letter><name char> | <name><name char>
+<name char> ::= "_" | <letter> | <digit>
+
+<conditional> ::= <boolean expr> ? <expr> : <expr>
+
+<expr> ::= <binary op> | <unary op> | <const> | <var>
+
+<binary op> ::= <expr> <bin oper> <expr>
+<unary op> ::= <prefix un oper> <expr>
+
+<bin oper> ::= "+" | "-" | "*" | "/" | "|" | "&" | "%" | "&&" | "||"
+<prefix un oper> ::= "~" | "!"
+<assignment oper> ::= "=" | "*=" | "/=" | "%=" | "+=" | "-=" | "<<=" | ">>=" | ">>>=" | "&=" | "^=" | "|="
+
+<keyword> ::= using | nspace | ret | do | while | if | for | mut
+
+<type name> ::= string | fn | <int type> | <uint type> | <real type> | <char type> | <bool type>
+
+<int type> ::= i8 | i16 | i32 | i64
+<uint type> ::= u8 | u16 | u32 | u64
+<real type> ::= f16 | f32 | f64 | f128
+<char type> ::= char | ch32
+<boolean type> ::= bool
+
+<string literal> ::= "[<string chars>]"
+<string chars> ::= <string char> | <string chars><string char>
+<string char> ::= <letter>
