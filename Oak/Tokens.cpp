@@ -14,34 +14,49 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
-#pragma once
-#include "Tokenizer.h"
-#include "AST.h"
+#include "Tokens.h"
 
-class Parser
-{
-    // the current token
-    Token cur_tok;
-    Tokenizer* m_tok = nullptr;
-    // the current namespace
-    Namespace* m_nspace = nullptr;
-
-    // type of the statement
-    enum class StateType
-    {
-        // assignment statement
-        Assign,
-        // function call
-        FuncCall
-    };
-
-public:
-    Parser(Tokenizer& t);
-    void Parse(AST& ast);
-    StatementBlock* ParseBlock();
-    std::vector<ASTNode*> ParseStatement();
-    ASTNode* ParseExpression();
-    Var* ParseVarDecl();
-    inline String ParseUsing();
+const wchar_t* KeywordStr[]{
+    L"using",
+    L"nspace",
+    L"fn",
+    L"string",
+    L"i8",
+    L"i16",
+    L"i32",
+    L"i64",
+    L"u8",
+    L"u16",
+    L"u32",
+    L"u64",
+    L"f32",
+    L"f64",
+    L"ch16",
+    L"ch32",
+    L"str16",
+    L"str32",
+    L"bool",
+    L"ret",
+    L"mut",
+    L"true",
+    L"false",
+    L"break",
+    L"continue",
+    L"if",
+    L"else",
+    L"switch",
+    L"case",
+    L"while",
+    L"for",
+    L"do",
+    L"let",
+    L"null",
+    L"class",
+    L"pub",
+    L"prv",
+    L"prt",
+    L"vrt",
+    L"base",
+    L"new"
 };
 

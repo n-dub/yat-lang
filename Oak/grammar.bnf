@@ -1,37 +1,49 @@
-<statement block> ::= { [<statements>] }
+<statement_block> ::= { <statements>? }
 
 <statements> ::= <statement> | <statements><statement>
-<statement> ::= <function call> | <assignment statement>
+<statement> ::= <function_call>; | <assignment>; | <unary_op>;
 
-<assignment statement> ::= <assignment> | <conditional>
+<function_call> ::= <name>(<param_list>)
 
-<assignment> ::= <assignment left> <assigment oper> <expr>
-<assignment left> ::= <var> | <assignment statement>
-<var> ::= <name>
-<name> ::= "_" | <letter> | "_"<name char> | <letter><name char> | <name><name char>
-<name char> ::= "_" | <letter> | <digit>
+<assignment> ::= <assignment_left> <assigment_oper> <expr>
+<assignment_left> ::= <name> | <assignment> | <var_def>
+<var_def> ::= <type_name> <name>
 
-<conditional> ::= <boolean expr> ? <expr> : <expr>
+<name> ::= "_" | <letter> | "_"<name_char> | <letter><name_char> | <name><name_char>
+<name_char> ::= "_" | <letter> | <digit>
 
-<expr> ::= <binary op> | <unary op> | <const> | <var>
+<conditional> ::= <boolean_expr> ? <expr> : <expr>
 
-<binary op> ::= <expr> <bin oper> <expr>
-<unary op> ::= <prefix un oper> <expr>
+<expr> ::= <binary_op> | <unary_op> | <const> | <name> | <conditional> | <lambda>
 
-<bin oper> ::= "+" | "-" | "*" | "/" | "|" | "&" | "%" | "&&" | "||"
-<prefix un oper> ::= "~" | "!"
-<assignment oper> ::= "=" | "*=" | "/=" | "%=" | "+=" | "-=" | "<<=" | ">>=" | ">>>=" | "&=" | "^=" | "|="
+<lambda> ::= (<param_list>) "->" <return_type> <statement_block>;
+<return_type> ::= <type_name> | "null"
 
-<keyword> ::= using | nspace | ret | do | while | if | for | mut
+# required parameters must be first in the list
+<param_list> ::= <param>? | <req_param>?<opt_param>?
 
-<type name> ::= string | fn | <int type> | <uint type> | <real type> | <char type> | <bool type>
+<param> ::= <req_param> | <opt_param>
 
-<int type> ::= i8 | i16 | i32 | i64
-<uint type> ::= u8 | u16 | u32 | u64
-<real type> ::= f16 | f32 | f64 | f128
-<char type> ::= char | ch32
-<boolean type> ::= bool
+<req_param> ::= <type_name> <name>
+<opt_param> ::= <type_name> <name> "=" <const>
 
-<string literal> ::= "[<string chars>]"
-<string chars> ::= <string char> | <string chars><string char>
-<string char> ::= <letter>
+<binary_op> ::= <expr> <bin_oper> <expr>
+<unary_op> ::= <prefix_un_oper> <expr>
+
+<bin_oper> ::= "+" | "-" | "*" | "/" | "|" | "&" | "%" | "&&" | "||"
+<prefix un_oper> ::= "~" | "!"
+<assignment_oper> ::= "=" | "*=" | "/=" | "%=" | "+=" | "-=" | "<<=" | ">>=" | ">>>=" | "&=" | "^=" | "|="
+
+<keyword> ::= using | nspace | ret | do | while | if | for | mut | let
+
+<type_name> ::= string | fn | <int_type> | <uint_type> | <real_type> | <char_type> | <bool_type>
+
+<int_type> ::= i8 | i16 | i32 | i64
+<uint_type> ::= u8 | u16 | u32 | u64
+<real_type> ::= f16 | f32 | f64 | f128
+<char_type> ::= char | ch32
+<boolean_type> ::= bool
+
+<string_literal> ::= "[<string_chars>]"
+<string_chars> ::= <string_char> | <string_chars><string_char>
+<string_char> ::= <letter>

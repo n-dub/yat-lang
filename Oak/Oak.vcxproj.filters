@@ -35,6 +35,9 @@
     <ClCompile Include="Parser.cpp">
       <Filter>Parser</Filter>
     </ClCompile>
+    <ClCompile Include="Tokens.cpp">
+      <Filter>Tokenizer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />

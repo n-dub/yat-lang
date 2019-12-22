@@ -158,6 +158,7 @@
     <ClCompile Include="Oak.cpp" />
     <ClCompile Include="Parser.cpp" />
     <ClCompile Include="Tokenizer.cpp" />
+    <ClCompile Include="Tokens.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="grammar.bnf">

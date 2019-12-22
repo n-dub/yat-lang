@@ -1,3 +1,19 @@
+//  Oak programming language
+//  Copyright (C) 2019  Nikita Dubovikov
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+//
 #pragma once
 #include "Tokens.h"
 #include <vector>
@@ -13,12 +29,14 @@ enum class NodeType
     Call,
     // function definition
     Func,
-    // leaf node (a constant or a variable)
-    Leaf,
-    // any keyword
-    Keyword,
+    // leaf node (constant)
+    ConstLeaf,
+    // leaf node (variable)
+    VarLeaf,
     // statement block
-    StBlock
+    StBlock,
+    // variable declaration
+    Var
 };
 
 class ASTNode
@@ -27,11 +45,11 @@ public:
     NodeType type = NodeType::None;
 };
 
-class Leaf : public ASTNode
+class ConstLeaf : public ASTNode
 {
 public:
     Token data;
-    Leaf(const Token& data);
+    ConstLeaf(const Token& data);
 };
 
 // Unary Operator representation
@@ -62,6 +80,8 @@ public:
 
 class Lambda : public ASTNode
 {
+public:
+    Lambda();
     StatementBlock* def = nullptr;
     std::vector<Token> params;
     Token retType;
@@ -70,9 +90,28 @@ class Lambda : public ASTNode
 class FnCall : public ASTNode
 {
 public:
+    FnCall();
     Token FnName; // is needed before linking stage
     Lambda* func = nullptr;
     std::vector<ASTNode*> params;
+};
+
+// variable declaration
+class Var : public ASTNode
+{
+public:
+    Var();
+    String name;
+    Keyword var_type;
+    bool mut = false;
+};
+
+// using value of a variable in a statement
+class VarLeaf : public ASTNode
+{
+public:
+    Var* data;
+    VarLeaf(Var* data);
 };
 
 class Namespace
@@ -82,7 +121,7 @@ public:
     // all using statements
     std::vector<String> uses;
     // block of all statements of the namespace
-    StatementBlock block;
+    StatementBlock* block;
 };
 
 class AST
