@@ -23,9 +23,9 @@
 class Compiler
 {
     String m_output, m_input, m_error;
-
+    bool m_as_outp;
 public:
-    Compiler(const String& inp, const String& outp);
+    Compiler(const String& inp, const String& outp, bool as);
     bool Run();
     String GetError();
 };

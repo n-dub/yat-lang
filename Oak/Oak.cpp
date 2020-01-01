@@ -26,11 +26,14 @@ Usage:
 Options:
     -h                                  show this help message
     -o <path>                           output file (without extension)
+    -S                                  compile file, but do not assemble and link
 )";
 
 int main(int argc, char** argv)
 {
+    setlocale(LC_ALL, "");
     std::wstring output, input;
+    bool assembly = false;
 
     if (argc <= 1)
     {
@@ -62,20 +65,23 @@ int main(int argc, char** argv)
                 continue;
             }
 
+            if (args[i] == "-S")
+            {
+                assembly = true;
+                continue;
+            }
+
             S2W(args[i], input);
         }
     }
 
-    Compiler comp(input, output);
+    Compiler comp(input, output, assembly);
     if (comp.Run())
     {
         return 0;
     }
-    else
-    {
-        std::wcerr << comp.GetError();
-        std::wcout << "Build failed";
-        return 1;
-    }
+
+    std::wcerr << comp.GetError() << L"\n\nBuild failed\n";
+    return 1;
 }
 

@@ -32,12 +32,15 @@ class Tokenizer
     String m_code;
     uint64_t m_offset = 0, line = 1, col = 1;
     wchar_t GetChar();
+    void EatChars(size_t n);
     void SkipWhite();
     void NextLine();
     void SkipComments();
     bool IsNumValid(const Token& t);
     Keyword IsKeyword(const String& str);
     wchar_t ParseEscapeChar();
+    String GetLine(uint64_t& n_col);
+
 public:
     Tokenizer(const String& str, bool path = true);
 
@@ -49,6 +52,10 @@ public:
 
     template<StringType T>
     Token ParseStringLiteral();
+
+    // get string containing all characters before char tt
+    // and do not remove this char
+    Token ParseRawUntil(wchar_t tt);
 
     Token ParseOperator();
     Token Next();

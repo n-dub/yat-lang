@@ -18,6 +18,9 @@
     <Filter Include="Parser">
       <UniqueIdentifier>{eac311f7-09c6-4746-9618-24bbbd887d8b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="CodeGenerator">
+      <UniqueIdentifier>{aa0f5428-014d-474b-88f8-64cce5d4b92f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Oak.cpp">
@@ -38,9 +41,14 @@
     <ClCompile Include="Tokens.cpp">
       <Filter>Tokenizer</Filter>
     </ClCompile>
+    <ClCompile Include="CodeGen.cpp">
+      <Filter>CodeGenerator</Filter>
+    </ClCompile>
+    <ClCompile Include="CodeTemplates.cpp">
+      <Filter>CodeGenerator</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="README.md" />
     <None Include="grammar.bnf" />
   </ItemGroup>
   <ItemGroup>
@@ -64,6 +72,12 @@
     </ClInclude>
     <ClInclude Include="Parser.h">
       <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="CodeGen.h">
+      <Filter>CodeGenerator</Filter>
+    </ClInclude>
+    <ClInclude Include="CodeTemplates.h">
+      <Filter>CodeGenerator</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

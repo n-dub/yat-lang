@@ -1,0 +1,25 @@
+nspace system.io
+{
+	#!(unsafe)!
+	fn print = (str16 msg) -> null {
+		// inline assembly
+		// ret is not required
+		// TODO: call setlocale() somewhere else
+		_asm(m1 = msg.char_array()) {
+			.data
+			m0:
+				.ascii "\0"
+			m2:
+				.ascii "%ls"
+			.text
+				leaq m0, %rdx
+				movl $0, %ecx
+				call setlocale
+				
+				leaq m1, %rdx
+				leaq m2, %rcx
+				call printf
+		}
+	}
+}
+

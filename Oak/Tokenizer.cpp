@@ -32,6 +32,14 @@ wchar_t Tokenizer::GetChar()
     return m_code[m_offset++];
 }
 
+void Tokenizer::EatChars(size_t n)
+{
+    for (size_t i = 0; i < n; ++i)
+    {
+        GetChar();
+    }
+}
+
 void Tokenizer::SkipWhite()
 {
     wchar_t c = m_code[m_offset];
@@ -103,7 +111,9 @@ Tokenizer::Tokenizer(const String& str, bool path)
 
 void Tokenizer::UnexpToken(const String& msg)
 {
-    throw UnexpectedToken(line, col, msg);
+    uint64_t n_col;
+    String r = GetLine(n_col);
+    throw UnexpectedToken(line, n_col, msg, r);
 }
 
 Token Tokenizer::ParseName()
@@ -123,7 +133,7 @@ Token Tokenizer::ParseName()
 
     Keyword kw = IsKeyword(r);
 
-    return Token(r, TokenType::Keyword, kw);
+    return Token(r, TokenType::Name, kw);
 }
 
 String Tokenizer::ParseNumber()
@@ -229,6 +239,27 @@ wchar_t Tokenizer::ParseEscapeChar()
     UnexpToken(L"Invalid escape character. If you need to use a backslash (\\), double it (\\\\) to avoid this error.");
 }
 
+String Tokenizer::GetLine(uint64_t& n_col)
+{
+    size_t s = m_code.find_last_of(L'\n', m_offset);
+    size_t e = m_code.find_first_of(L'\n', m_offset);
+
+    String res = m_code.substr(s, e - s);
+
+    int i = 0;
+    for (; i < res.length(); ++i)
+    {
+        if (!iswspace(res[i]))
+        {
+            break;
+        }
+    }
+
+    n_col = col - i;
+
+    return res.substr(i);
+}
+
 void Tokenizer::NextLine()
 {
     while (m_code[m_offset] != L'\n')
@@ -326,6 +357,14 @@ Token Tokenizer::ParseStringLiteral<Tokenizer::StringType::Raw>()
     }
 
     UnexpToken(L"End of file while parsing a raw string literal. Did you forget to close a quote with bracket?");
+}
+
+Token Tokenizer::ParseRawUntil(wchar_t tt)
+{
+    size_t off = m_code.find_first_of(tt, m_offset) - m_offset;
+    String str = m_code.substr(m_offset - 2, off);
+    EatChars(off);
+    return Token(str, TokenType::String);
 }
 
 Token Tokenizer::ParseOperator()
@@ -504,6 +543,11 @@ Token Tokenizer::ParseOperator()
         return Token(L"(", TokenType::LParen);
     case L')':
         GetChar();
+        if (m_code[m_offset] == L'!')
+        {
+            GetChar();
+            return Token(L")!", TokenType::PPEnd);
+        }
         return Token(L")", TokenType::RParen);
 
     case L'[':
@@ -525,16 +569,33 @@ Token Tokenizer::ParseOperator()
     case L'?':
         GetChar();
         return Token(L"?", TokenType::Quest);
+        // #!( PREPROCESSOR )!
+    case L'#':
+        GetChar();
+        if (m_code[m_offset] == L'!')
+        {
+            GetChar();
+            if (m_code[m_offset == '('])
+            {
+                GetChar();
+                return Token(L"#!(", TokenType::PPBegin);
+            }
+        }
+        UnexpToken(L"Invalid preprocessor directive.");
 
     default:
         UnexpToken(L"Expected an operator. Unknown character " + m_code[m_offset]);
     }
 }
 
+bool EofReturned = false;
+
 Token Tokenizer::Next()
 {
     if (m_offset >= m_code.size())
     {
+        if (EofReturned) UnexpToken(L"End of file");
+        EofReturned = true;
         return Token(L"EoF", TokenType::EoF);
     }
 
@@ -542,6 +603,8 @@ Token Tokenizer::Next()
 
     if (m_offset >= m_code.size())
     {
+        if (EofReturned) UnexpToken(L"End of file");
+        EofReturned = true;
         return Token(L"EoF", TokenType::EoF);
     }
 
@@ -549,6 +612,8 @@ Token Tokenizer::Next()
 
     if (m_offset >= m_code.size())
     {
+        if (EofReturned) UnexpToken(L"End of file");
+        EofReturned = true;
         return Token(L"EoF", TokenType::EoF);
     }
 

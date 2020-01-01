@@ -15,16 +15,40 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 #pragma once
+#include <vector>
 #include "Tokenizer.h"
 #include "AST.h"
 
 class Parser
 {
+    // preprocessor
+    enum class PPDir
+    {
+        // used to allow pointers and _asm
+        unsafe,
+        // used to define default string class
+        default_str,
+        // last enum's element
+        Last
+    };
+
+    struct
+    {
+        PPDir type = PPDir::Last;
+
+        void Reset()
+        {
+            type = PPDir::Last;
+        }
+    } m_pp;
+
     // the current token
     Token cur_tok;
     Tokenizer* m_tok = nullptr;
     // the current namespace
     Namespace* m_nspace = nullptr;
+
+    std::vector<std::vector<Var*>> m_vars;
 
     // type of the statement
     enum class StateType
@@ -38,10 +62,18 @@ class Parser
 public:
     Parser(Tokenizer& t);
     void Parse(AST& ast);
-    StatementBlock* ParseBlock();
-    std::vector<ASTNode*> ParseStatement();
-    ASTNode* ParseExpression();
-    Var* ParseVarDecl();
+
+    inline Var* GetVariable(const String& v);
+    inline void AddVariable(Var* var);
+
+    inline StatementBlock* ParseBlock(bool is_fn);
+    inline std::vector<ASTNode*> ParseStatement();
+    inline ASTNode* ParseExpression(bool fn, Keyword& exp_type);
+    inline std::vector<Var*> ParseParamList();
+    inline Var* ParseVarDecl();
     inline String ParseUsing();
+    inline void ParsePreProc();
+    inline Range* ParseRange();
+    inline ASTNode* ShuntingYard();
 };
 

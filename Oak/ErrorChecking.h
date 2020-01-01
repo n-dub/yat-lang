@@ -21,10 +21,30 @@
 
 class UnexpectedToken : public Error
 {
+    inline String GenString(uint64_t len, uint64_t col)
+    {
+        String res;
+        res.reserve(len);
+        for (int i = 0; i < len; ++i)
+        {
+            if (i == col)
+            {
+                res += L'^';
+            }
+            else
+            {
+                res += L'~';
+            }
+        }
+
+        res += L"\n\n";
+        return res;
+    }
+
 public:
-    UnexpectedToken(uint64_t line, uint64_t c, const String& info)
-        : Error(L"Unexpected token:\n" + info + L"\nAt " + std::to_wstring(line)
-            + L" : " + std::to_wstring(c) + L"\n")
+    UnexpectedToken(uint64_t line, uint64_t c, const String& info, const String& code_line = L"")
+        : Error(L"\nUnexpected token:\n" + info + L"\nAt line #" + std::to_wstring(line)
+            + L", character #" + std::to_wstring(c) + L"\n\n" + code_line + L"\n" + GenString(code_line.length(), c))
     {
     }
 };

@@ -18,11 +18,13 @@
 #include "Tokenizer.h"
 #include <chrono>
 #include "Parser.h"
+#include "CodeGen.h"
 
-Compiler::Compiler(const String& inp, const String& outp)
+Compiler::Compiler(const String& inp, const String& outp, bool as)
 {
     m_input = inp;
     m_output = outp;
+    m_as_outp = as;
 }
 
 bool Compiler::Run()
@@ -37,8 +39,24 @@ bool Compiler::Run()
         AST tree;
         parser.Parse(tree);
 
+        // tree.DebugPrint();
+        // return true;
+
+        CodeGen cg(tree);
+        // if (m_as_outp)
+        // {
+        cg.WriteCode(m_output + L".s");
+        // }
+        // else
+        // {
+        //     cg.WriteCode(m_output + L".s");
+        //     String cmd = L"gcc " + m_output + L".s -o " + m_output + L" -m64";
+        //     std::wcout << cmd << L"\n";
+        //     _wsystem(cmd.c_str());
+        // }
+
         auto sec = (std::chrono::high_resolution_clock::now() - st);
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(sec).count();
+        std::wcout << std::chrono::duration_cast<std::chrono::milliseconds>(sec).count();
     }
     catch(const Error& ex)
     {

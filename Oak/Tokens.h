@@ -145,6 +145,13 @@ enum class TokenType
     // right square bracket ']'
     RBracket,
 
+    // preprocessor
+
+    // #!(
+    PPBegin,
+    // )!
+    PPEnd,
+
     // literal [0-9]+i8  (signed)
     Int8L,
     // literal [0-9]+i16 (signed)
@@ -179,7 +186,6 @@ enum class Keyword
     kw_using,
     kw_nspace,
     kw_fn,
-    kw_string,
     kw_i8,
     kw_i16,
     kw_i32,
@@ -191,9 +197,7 @@ enum class Keyword
     kw_f32,
     kw_f64,
     kw_ch16,
-    kw_ch32,
     kw_str16,
-    kw_str32,
     kw_bool,
     kw_ret,
     kw_mut,
@@ -203,8 +207,6 @@ enum class Keyword
     kw_continue,
     kw_if,
     kw_else,
-    kw_switch,
-    kw_case,
     kw_while,
     kw_for,
     kw_do,
@@ -217,10 +219,34 @@ enum class Keyword
     kw_vrt,
     kw_base,
     kw_new,
+    kw_asm,
+    kw_rng,
+    Last
+};
+
+enum class AsMnemonic
+{
+    as_mov,
+    as_add,
+    as_sub,
+    as_imul,
+    as_mul,
+    as_idiv,
+    as_div,
+    as_shl,
+    as_shr,
+    as_lea,
+    as_and,
+    as_or,
+    as_not,
+    as_xor,
+    as_inc,
+    as_dec,
     Last
 };
 
 extern const wchar_t* KeywordStr[];
+extern const wchar_t* MnemonicStr[];
 
 class Token
 {
@@ -245,4 +271,55 @@ public:
     TokenType type{};
     Keyword kw_type{};
 };
+
+struct OperPrec
+{
+    OperPrec(bool r, int p)
+    {
+        right = r;
+        prec = p;
+    }
+
+    bool operator<(const OperPrec& p)
+    {
+        return prec < p.prec;
+    }
+
+    bool operator>(const OperPrec& p)
+    {
+        return prec > p.prec;
+    }
+
+    bool operator<=(const OperPrec& p)
+    {
+        return prec <= p.prec;
+    }
+
+    bool operator>=(const OperPrec& p)
+    {
+        return prec >= p.prec;
+    }
+
+    bool operator==(const OperPrec& p)
+    {
+        return prec == p.prec;
+    }
+
+    bool operator!=(const OperPrec& p)
+    {
+        return prec != p.prec;
+    }
+
+    // true if the operator is right-associative
+    bool right = false;
+    // precedence of the operation
+    int prec = 0;
+};
+
+OperPrec GetPrecedence(TokenType oper, bool unary);
+bool IsNumber(TokenType type);
+bool IsNumber(Keyword kw);
+bool IsBinaryOp(TokenType type);
+Keyword TTypeToKeyword(TokenType t);
+size_t GetTypeSize(Keyword kw);
 

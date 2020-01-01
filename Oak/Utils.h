@@ -41,11 +41,19 @@ template<class T>
 inline T StringToInt(const String& str)
 {
     T buf = 0;
-    for (int i = 0; i < str.length(); ++i)
+    int i = 0;
+
+    bool neg = str[0] == L'-';
+    if (neg) i = 1;
+
+    for (; i < str.length(); ++i)
     {
         buf *= 10;
         buf += str[i] - L'0';
     }
+
+    if (neg && std::is_signed<T>()) buf *= -1;
+
     return buf;
 }
 
@@ -73,7 +81,7 @@ inline bool ReadFile(const String& path, String& buffer)
     std::wifstream wif(path);
     if (!wif.is_open()) return false;
 
-    wif.imbue(std::locale(std::locale::empty(), new std::codecvt_utf8<wchar_t>));
+    auto _ = wif.imbue(std::locale(std::locale::empty(), new std::codecvt_utf8<wchar_t>));
     std::wstringstream wss;
     wss << wif.rdbuf();
     buffer = wss.str();

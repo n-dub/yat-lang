@@ -154,6 +154,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AST.cpp" />
+    <ClCompile Include="CodeGen.cpp" />
+    <ClCompile Include="CodeTemplates.cpp" />
     <ClCompile Include="Compiler.cpp" />
     <ClCompile Include="Oak.cpp" />
     <ClCompile Include="Parser.cpp" />
@@ -164,10 +166,11 @@
     <None Include="grammar.bnf">
       <FileType>Text</FileType>
     </None>
-    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AST.h" />
+    <ClInclude Include="CodeGen.h" />
+    <ClInclude Include="CodeTemplates.h" />
     <ClInclude Include="Compiler.h" />
     <ClInclude Include="ErrorChecking.h" />
     <ClInclude Include="Parser.h" />
