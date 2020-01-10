@@ -14,13 +14,13 @@ m0:
 fmtstr:
 	.ascii "%ls\0"
 .text
-	leaq	m0, %rdx
-	movl	$0, %ecx
-	call	setlocale
+	leaq      m0, %rdx
+	movl      $0, %ecx
+	call      setlocale
 	
-	movq	system.io.tempmessage, %rdx
-	leaq	fmtstr, %rcx
-	call	printf
+	movq      system.io.tempmessage, %rdx
+	leaq      fmtstr, %rcx
+	call      printf
 		}
 	};
 }

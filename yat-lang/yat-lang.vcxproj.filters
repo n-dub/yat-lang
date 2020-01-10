@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="CodeGen">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Parser">
+      <UniqueIdentifier>{bc2f5370-dfef-4fa8-a2eb-237b51656508}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{d508658d-93b6-43c4-ba6c-865f64b4eb88}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tokenizer">
+      <UniqueIdentifier>{c74e7586-80ce-45cf-904d-da7409e5833a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Compiler">
+      <UniqueIdentifier>{c033dfe9-000b-4802-8a0a-d6aad7e2c6b5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="AsInstr.cpp">
+      <Filter>CodeGen</Filter>
+    </ClCompile>
+    <ClCompile Include="CodeGen.cpp">
+      <Filter>CodeGen</Filter>
+    </ClCompile>
+    <ClCompile Include="Register.cpp">
+      <Filter>CodeGen</Filter>
+    </ClCompile>
+    <ClCompile Include="Parser.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="AST.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="Tokens.cpp">
+      <Filter>Tokenizer</Filter>
+    </ClCompile>
+    <ClCompile Include="Tokenizer.cpp">
+      <Filter>Tokenizer</Filter>
+    </ClCompile>
+    <ClCompile Include="Compiler.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AsInstr.h">
+      <Filter>CodeGen</Filter>
+    </ClInclude>
+    <ClInclude Include="CodeGen.h">
+      <Filter>CodeGen</Filter>
+    </ClInclude>
+    <ClInclude Include="Register.h">
+      <Filter>CodeGen</Filter>
+    </ClInclude>
+    <ClInclude Include="Parser.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="AST.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="Utils.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Tokens.h">
+      <Filter>Tokenizer</Filter>
+    </ClInclude>
+    <ClInclude Include="Tokenizer.h">
+      <Filter>Tokenizer</Filter>
+    </ClInclude>
+    <ClInclude Include="ErrorChecking.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Compiler.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="grammar.bnf">
+      <Filter>Common</Filter>
+    </None>
+  </ItemGroup>
+</Project>

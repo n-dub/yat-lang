@@ -18,11 +18,37 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="AsInstr.cpp" />
+    <ClCompile Include="AST.cpp" />
+    <ClCompile Include="CodeGen.cpp" />
+    <ClCompile Include="Compiler.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Parser.cpp" />
+    <ClCompile Include="Register.cpp" />
+    <ClCompile Include="Tokenizer.cpp" />
+    <ClCompile Include="Tokens.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AsInstr.h" />
+    <ClInclude Include="AST.h" />
+    <ClInclude Include="CodeGen.h" />
+    <ClInclude Include="Compiler.h" />
+    <ClInclude Include="ErrorChecking.h" />
+    <ClInclude Include="Parser.h" />
+    <ClInclude Include="Register.h" />
+    <ClInclude Include="Tokenizer.h" />
+    <ClInclude Include="Tokens.h" />
+    <ClInclude Include="Utils.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="grammar.bnf" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{7C6DDEC8-A870-4B7F-A226-41B6B5B8D29E}</ProjectGuid>
+    <ProjectGuid>{E4A3F19E-932D-4EAC-AC43-15C00FD14117}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>Oak</RootNamespace>
+    <RootNamespace>yatlang</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -104,7 +130,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -141,7 +167,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -152,34 +178,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="AsInstr.cpp" />
-    <ClCompile Include="AST.cpp" />
-    <ClCompile Include="CodeGen.cpp" />
-    <ClCompile Include="Compiler.cpp" />
-    <ClCompile Include="Oak.cpp" />
-    <ClCompile Include="Parser.cpp" />
-    <ClCompile Include="Register.cpp" />
-    <ClCompile Include="Tokenizer.cpp" />
-    <ClCompile Include="Tokens.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="grammar.bnf">
-      <FileType>Text</FileType>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="AsInstr.h" />
-    <ClInclude Include="AST.h" />
-    <ClInclude Include="CodeGen.h" />
-    <ClInclude Include="Compiler.h" />
-    <ClInclude Include="ErrorChecking.h" />
-    <ClInclude Include="Parser.h" />
-    <ClInclude Include="Register.h" />
-    <ClInclude Include="Tokenizer.h" />
-    <ClInclude Include="Tokens.h" />
-    <ClInclude Include="Utils.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
