@@ -21,7 +21,7 @@
 
 constexpr const char* HelpMsg = R"(
 Usage:
-    oak <input files> [options]
+    yat <input files> [options]
 
 Options:
     -h                                  show this help message

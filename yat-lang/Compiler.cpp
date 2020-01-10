@@ -15,11 +15,11 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 #include <chrono>
+#include <filesystem>
 #include "Compiler.h"
 #include "Tokenizer.h"
 #include "Parser.h"
 #include "CodeGen.h"
-#include <filesystem>
 
 Compiler::Compiler(const String& inp, const String& outp, bool as)
 {
@@ -36,7 +36,7 @@ bool Compiler::Run()
 
         std::vector<String> imports;
         Token t = tok->Next();
-        String lib_path = GetEnvVar("OakLibDir");
+        String lib_path = GetEnvVar("YatLibDir");
         if (lib_path == L"")
         {
             std::wcout << L"WARNING: Cannot find Oak standard library.\n"
