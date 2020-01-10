@@ -44,6 +44,12 @@
     <ClCompile Include="CodeGen.cpp">
       <Filter>CodeGenerator</Filter>
     </ClCompile>
+    <ClCompile Include="Register.cpp">
+      <Filter>CodeGenerator</Filter>
+    </ClCompile>
+    <ClCompile Include="AsInstr.cpp">
+      <Filter>CodeGenerator</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="grammar.bnf" />
@@ -71,6 +77,12 @@
       <Filter>Parser</Filter>
     </ClInclude>
     <ClInclude Include="CodeGen.h">
+      <Filter>CodeGenerator</Filter>
+    </ClInclude>
+    <ClInclude Include="Register.h">
+      <Filter>CodeGenerator</Filter>
+    </ClInclude>
+    <ClInclude Include="AsInstr.h">
       <Filter>CodeGenerator</Filter>
     </ClInclude>
   </ItemGroup>

@@ -153,11 +153,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AsInstr.cpp" />
     <ClCompile Include="AST.cpp" />
     <ClCompile Include="CodeGen.cpp" />
     <ClCompile Include="Compiler.cpp" />
     <ClCompile Include="Oak.cpp" />
     <ClCompile Include="Parser.cpp" />
+    <ClCompile Include="Register.cpp" />
     <ClCompile Include="Tokenizer.cpp" />
     <ClCompile Include="Tokens.cpp" />
   </ItemGroup>
@@ -167,11 +169,13 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AsInstr.h" />
     <ClInclude Include="AST.h" />
     <ClInclude Include="CodeGen.h" />
     <ClInclude Include="Compiler.h" />
     <ClInclude Include="ErrorChecking.h" />
     <ClInclude Include="Parser.h" />
+    <ClInclude Include="Register.h" />
     <ClInclude Include="Tokenizer.h" />
     <ClInclude Include="Tokens.h" />
     <ClInclude Include="Utils.h" />

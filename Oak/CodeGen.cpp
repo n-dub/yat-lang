@@ -17,251 +17,6 @@
 #include "CodeGen.h"
 #include <algorithm>
 
-const String AsInstr::SuffixStr[]{
-    L"b", L"s", L"w", L"l", L"q",
-    L"g",   L"l",  L"e",
-    L"ge",  L"le",
-    L"ng",  L"nl", L"ne",
-    L"nge", L"nle",
-    L"z",   L"s",
-    L""
-};
-
-const String AsInstr::InstrStr[]{
-    L"nop",
-    L"mov",
-    L"lea",
-    L"add",
-    L"sub",
-    L"mul",
-    L"imul",
-    L"div",
-    L"idiv",
-    L"push",
-    L"pop",
-    L"call",
-    L"cmp",
-    L"dec",
-    L"inc",
-    L"jmp",
-    L"j",
-    L"ret",
-    L"shl",
-    L"shr",
-    L"and",
-    L"or",
-    L"not",
-    L"xor",
-    L"neg",
-    L""
-};
-
-const String RegisterStr[]{
-    L"al",
-    L"bl",
-    L"cl",
-    L"dl",
-    L"ah",
-    L"bh",
-    L"ch",
-    L"dh",
-    L"ax",
-    L"bx",
-    L"cx",
-    L"dx",
-    L"eax",
-    L"ebx",
-    L"ecx",
-    L"edx",
-    L"rax",
-    L"rbx",
-    L"rcx",
-    L"rdx",
-    L"rbp",
-    L"rsp",
-    L"rsi",
-    L"rdi",
-    L"r8",
-    L"r9",
-    L"r10",
-    L"r11",
-    L"r12",
-    L"r13",
-    L"r14",
-    L"r15",
-    L"r8d",    
-    L"r9d",    
-    L"r10d",   
-    L"r11d",   
-    L"r12d",   
-    L"r13d",   
-    L"r14d",   
-    L"r15d",   
-    L"r8w",    
-    L"r9w",    
-    L"r10w",   
-    L"r11w",   
-    L"r12w",   
-    L"r13w",   
-    L"r14w",   
-    L"r15w",   
-    L"r8b",    
-    L"r9b",    
-    L"r10b",   
-    L"r11b",   
-    L"r12b",   
-    L"r13b",   
-    L"r14b",   
-    L"r15b",   
-    L"xmm0",
-    L"xmm1",
-    L"xmm2",
-    L"xmm3",
-    L"xmm4",
-    L"xmm5",
-    L"xmm6",
-    L"xmm7",
-    L"xmm8",
-    L"xmm9",
-    L"xmm10",
-    L"xmm11",
-    L"xmm12",
-    L"xmm13",
-    L"xmm14",
-    L"xmm15",
-    L"Last"
-};
-
-inline AsInstr::Instr TTypeToInstr(TokenType type)
-{
-    switch (type)
-    {
-    case TokenType::Assign:
-        return AsInstr::Instr::as_mov;
-    case TokenType::OperPlus:
-        return AsInstr::Instr::as_add;
-    case TokenType::OperMin:
-        return AsInstr::Instr::as_sub;
-    case TokenType::OperMul:
-        return AsInstr::Instr::as_imul;
-    case TokenType::OperPow:
-        throw; // TODO
-    case TokenType::OperDiv:
-        return AsInstr::Instr::as_idiv;
-    case TokenType::OperPCent:
-        throw; // TODO
-    case TokenType::OperInc:
-        return AsInstr::Instr::as_inc;
-    case TokenType::OperDec:
-        return AsInstr::Instr::as_dec;
-    case TokenType::OperLShift:
-        return AsInstr::Instr::as_shl;
-    case TokenType::OperRShift:
-        return AsInstr::Instr::as_shr;
-    case TokenType::OperBWAnd:
-        return AsInstr::Instr::as_and;
-    case TokenType::OperBWOr:
-        return AsInstr::Instr::as_or;
-    case TokenType::OperNot:
-        return AsInstr::Instr::as_not;
-    case TokenType::OperXor:
-        return AsInstr::Instr::as_xor;
-    default:
-        throw;
-    }
-}
-
-AsInstr::AsInstr(const String& inl)
-{
-    l1 = inl;
-    instr = Instr::Last;
-}
-
-String AsInstr::GenText()
-{
-    if (instr == Instr::Last)
-    {
-        return l1;
-    }
-
-    String res = L"";
-    res += InstrStr[(size_t)instr];
-    res += SuffixStr[(size_t)suf];
-    res += SuffixStr[(size_t)suf0];
-    res += SuffixStr[(size_t)suf1];
-
-    for (int i = res.length(); i < 10; ++i)
-    {
-        res += L" ";
-    }
-
-    switch (oper1)
-    {
-    case AsInstr::Operands::Reg:
-        res += L"%";
-        res += RegisterStr[(size_t)reg1];
-        break;
-    case AsInstr::Operands::Stack:
-        res += std::to_wstring(mem1);
-        res += L"(%";
-        res += RegisterStr[(size_t)stackReg];
-        res += L")";
-        break;
-    case AsInstr::Operands::Label:
-        res += l1;
-        break;
-    case AsInstr::Operands::Const:
-        res += L"$";
-        res += l1;
-        break;
-    }
-
-    switch (oper2)
-    {
-    case AsInstr::Operands::Reg:
-        res += L", %";
-        res += RegisterStr[(size_t)reg2];
-        break;
-    case AsInstr::Operands::Stack:
-        res += L", ";
-        res += std::to_wstring(mem2);
-        res += L"(%";
-        res += RegisterStr[(size_t)stackReg];
-        res += L")";
-        break;
-    case AsInstr::Operands::Label:
-        res += L", ";
-        res += l2;
-        break;
-    case AsInstr::Operands::Const:
-        res += L", ";
-        res += L"$";
-        res += l2;
-        break;
-    }
-
-    return res + L"\n";
-}
-
-void AsInstr::SetSizeSuffix(size_t bytes)
-{
-    switch (bytes)
-    {
-    case 1:  suf = InstrSuffix::s_b; break;
-    case 2:  suf = InstrSuffix::s_w; break;
-    case 4:  suf = InstrSuffix::s_l; break;
-    case 8:  suf = InstrSuffix::s_q; break;
-    }
-}
-
-void AsInstr::SwapOperands()
-{
-    std::swap(oper1, oper2);
-    std::swap(l1, l2);
-    std::swap(reg1, reg2);
-    std::swap(mem1, mem2);
-}
-
 inline Register CodeGen::TryAllocRegister(bool fp, size_t bytes)
 {
     if (!fp)
@@ -271,7 +26,7 @@ inline Register CodeGen::TryAllocRegister(bool fp, size_t bytes)
             RegisterState.RegB = false;
             switch (bytes)
             {
-            case 1: return Register::bh;
+            case 1: return Register::bl;
             case 2: return Register::bx;
             case 4: return Register::ebx;
             case 8: return Register::rbx;
@@ -284,7 +39,7 @@ inline Register CodeGen::TryAllocRegister(bool fp, size_t bytes)
             RegisterState.RegD = false;
             switch (bytes)
             {
-            case 1: return Register::dh;
+            case 1: return Register::dl;
             case 2: return Register::dx;
             case 4: return Register::edx;
             case 8: return Register::rdx;
@@ -330,13 +85,13 @@ inline void CodeGen::FreeRegister(Register r)
 {
     switch (r)
     {
-    case Register::bh:
+    case Register::bl:
     case Register::bx:
     case Register::ebx:
     case Register::rbx:
         RegisterState.RegB = true;
         break;
-    case Register::dh:
+    case Register::dl:
     case Register::dx:
     case Register::edx:
     case Register::rdx:
@@ -350,7 +105,46 @@ inline void CodeGen::FreeRegister(Register r)
     case Register::r13:
     case Register::r14:
     case Register::r15:
-        RegisterState.RegRx[((int)r) - ((int)Register::r8)] = true;
+    case Register::r8b:
+    case Register::r9b:
+    case Register::r10b:
+    case Register::r11b:
+    case Register::r12b:
+    case Register::r13b:
+    case Register::r14b:
+    case Register::r15b:
+    case Register::r8w:
+    case Register::r9w:
+    case Register::r10w:
+    case Register::r11w:
+    case Register::r12w:
+    case Register::r13w:
+    case Register::r14w:
+    case Register::r15w:
+    case Register::r8d:
+    case Register::r9d:
+    case Register::r10d:
+    case Register::r11d:
+    case Register::r12d:
+    case Register::r13d:
+    case Register::r14d:
+    case Register::r15d:
+        if ((int)r < (int)Register::r8d)
+        {
+            RegisterState.RegRx[((int)r) - ((int)Register::r8)] = true;
+        }
+        else if ((int)r < (int)Register::r8w)
+        {
+            RegisterState.RegRx[((int)r) - ((int)Register::r8d)] = true;
+        }
+        else if ((int)r < (int)Register::r8b)
+        {
+            RegisterState.RegRx[((int)r) - ((int)Register::r8w)] = true;
+        }
+        else
+        {
+            RegisterState.RegRx[((int)r) - ((int)Register::r8b)] = true;
+        }
         break;
     case Register::xmm0:
     case Register::xmm1:
@@ -461,12 +255,86 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
     {
         Convert* cvt = (Convert*)node;
         VisitRes vr = VisitNode(cvt->value, glob, res);
+        Register temp = TryAllocRegister(false, GetTypeSize(cvt->value->GetTypeKW()));
 
         // TODO: support for stack, not only registers
+        AsInstr mov_in;
+        mov_in.instr = AsInstr::Instr::as_mov;
+        mov_in.SetSizeSuffix(GetTypeSize(cvt->value->GetTypeKW()));
+        switch (vr.type)
+        {
+        case VisitRes::glob:
+        {
+            mov_in.oper1 = AsInstr::Operands::Label;
+            mov_in.l1 = vr.gData->name;
+            break;
+        }
+        case VisitRes::loc:
+        {
+            mov_in.oper1 = AsInstr::Operands::Stack;
+            mov_in.mem1 = vr.lData.offset;
+            break;
+        }
+        case VisitRes::reg:
+        {
+            FreeRegister(vr.rData);
+            mov_in.oper1 = AsInstr::Operands::Reg;
+            mov_in.reg1 = vr.rData;
+            break;
+        }
+        case VisitRes::cnst:
+        {
+            mov_in.oper1 = AsInstr::Operands::Const;
+            mov_in.l1 = vr.cData->data.data;
+            break;
+        }
+        }
 
+        mov_in.oper2 = AsInstr::Operands::Reg;
+        mov_in.reg2 = temp;
 
-        VisitRes result;
-        return result;
+        AsInstr inst;
+        inst.instr = AsInstr::Instr::as_mov;
+        inst.oper1 = AsInstr::Operands::Reg;
+        inst.reg1 = temp;
+
+        if (GetTypeSize(cvt->value->GetTypeKW()) < GetTypeSize(cvt->GetTypeKW()))
+        {
+            switch (cvt->value->GetTypeKW())
+            {
+            case Keyword::kw_i8:
+            case Keyword::kw_i16:
+            case Keyword::kw_i32:
+            case Keyword::kw_i64:
+                inst.suf = AsInstr::InstrSuffix::x_s;
+                break;
+            case Keyword::kw_u8:
+            case Keyword::kw_u16:
+            case Keyword::kw_u32:
+            case Keyword::kw_u64:
+                inst.suf = AsInstr::InstrSuffix::x_z;
+                break;
+            }
+
+            inst.SetSizeSuffix(GetTypeSize(cvt->value->GetTypeKW()));
+            inst.SetSizeSuffix(GetTypeSize(cvt->GetTypeKW()));
+        }
+        else
+        {
+
+            inst.SetSizeSuffix(GetTypeSize(cvt->GetTypeKW()));
+            inst.reg1 = CvtReg(inst.reg1, GetTypeSize(cvt->GetTypeKW()));
+        }
+
+        inst.oper2 = AsInstr::Operands::Reg;
+        inst.reg2 = TryAllocRegister(false, GetTypeSize(cvt->GetTypeKW()));
+
+        FreeRegister(temp);
+
+        res.push_back(mov_in);
+        res.push_back(inst);
+
+        return VisitRes(inst.reg2);
     }
     case NodeType::WhileLoop:
     {
@@ -610,13 +478,13 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
 
         String instr = v->FnName.data;
 
-        res.push_back(L"subq\t$" + std::to_wstring(param_bytes) + L", %rsp\n");
+        res.push_back(L"subq      $" + std::to_wstring(param_bytes) + L", %rsp\n");
 
-        AsInstr call_in(L"call\t*(" + instr + L")\n");
+        AsInstr call_in(L"call      *(" + instr + L")\n");
 
         res.push_back(call_in);
 
-        res.push_back(L"addq\t$" + std::to_wstring(param_bytes) + L", %rsp\n");
+        res.push_back(L"addq      $" + std::to_wstring(param_bytes) + L", %rsp\n");
 
         if (v->func->ret_type != Keyword::kw_null)
         {
@@ -881,7 +749,6 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
 
         AsInstr mov_in;
         mov_in.instr = AsInstr::Instr::as_mov;
-        // TODO: convert types if the operands aren't of the same size
         mov_in.SetSizeSuffix(op_size);
 
         /*
@@ -1119,7 +986,7 @@ void CodeGen::WriteCode(const String& path)
         }
     }
     stream
-        << L"\tcall\t*(program.main)\n"
+        << L"\tcall      *(program.main)\n"
         << L"\tret\n\n";
 
     stream << L".data\n";
