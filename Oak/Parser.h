@@ -60,20 +60,22 @@ class Parser
     };
 
 public:
-    Parser(Tokenizer& t);
+    Parser(Tokenizer* t);
     void Parse(AST& ast);
 
-    inline Var* GetVariable(const String& v);
-    inline void AddVariable(Var* var);
+    inline Var* GetVariable(String v, String* fname = nullptr);
+    inline Var* GetVariable_(const String& v);
+    inline void AddVariable(Var* var, int64_t idx = -1);
 
+    inline ASTNode* ParseExpression(bool fn, Keyword& exp_type);
+    inline IfStatement* ParseIf();
     inline StatementBlock* ParseBlock(bool is_fn);
     inline std::vector<ASTNode*> ParseStatement();
-    inline ASTNode* ParseExpression(bool fn, Keyword& exp_type);
     inline std::vector<Var*> ParseParamList();
+    inline ASTNode* ShuntingYard();
     inline Var* ParseVarDecl();
     inline String ParseUsing();
     inline void ParsePreProc();
     inline Range* ParseRange();
-    inline ASTNode* ShuntingYard();
 };
 

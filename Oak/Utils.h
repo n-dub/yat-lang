@@ -22,6 +22,23 @@
 
 using String = std::wstring;
 
+inline void S2W(const std::string& narrow, std::wstring& wide);
+
+// Get system environment variable
+inline String GetEnvVar(const std::string& key)
+{
+    char* val = getenv(key.c_str());
+
+    if (val)
+    {
+        String wres;
+        S2W(val, wres);
+        return wres;
+    }
+
+    return String(L"");
+}
+
 class Error
 {
     String m_msg;
@@ -76,6 +93,7 @@ inline void S2W(const std::string& narrow, std::wstring& wide)
     wide = converter.from_bytes(narrow);
 }
 
+// add file contents to the buffer
 inline bool ReadFile(const String& path, String& buffer)
 {
     std::wifstream wif(path);
@@ -83,7 +101,7 @@ inline bool ReadFile(const String& path, String& buffer)
 
     auto _ = wif.imbue(std::locale(std::locale::empty(), new std::codecvt_utf8<wchar_t>));
     std::wstringstream wss;
-    wss << wif.rdbuf();
+    wss << buffer << wif.rdbuf();
     buffer = wss.str();
 
     return true;

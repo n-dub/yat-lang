@@ -224,29 +224,7 @@ enum class Keyword
     Last
 };
 
-enum class AsMnemonic
-{
-    as_mov,
-    as_add,
-    as_sub,
-    as_imul,
-    as_mul,
-    as_idiv,
-    as_div,
-    as_shl,
-    as_shr,
-    as_lea,
-    as_and,
-    as_or,
-    as_not,
-    as_xor,
-    as_inc,
-    as_dec,
-    Last
-};
-
 extern const wchar_t* KeywordStr[];
-extern const wchar_t* MnemonicStr[];
 
 class Token
 {
@@ -274,9 +252,8 @@ public:
 
 struct OperPrec
 {
-    OperPrec(bool r, int p)
+    OperPrec(int p)
     {
-        right = r;
         prec = p;
     }
 
@@ -310,8 +287,6 @@ struct OperPrec
         return prec != p.prec;
     }
 
-    // true if the operator is right-associative
-    bool right = false;
     // precedence of the operation
     int prec = 0;
 };
@@ -322,4 +297,6 @@ bool IsNumber(Keyword kw);
 bool IsBinaryOp(TokenType type);
 Keyword TTypeToKeyword(TokenType t);
 size_t GetTypeSize(Keyword kw);
+// returns EoF if invalid token type has been passed
+TokenType NegateLOp(TokenType op);
 

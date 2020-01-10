@@ -30,7 +30,7 @@ class Tokenizer
     };
 
     String m_code;
-    uint64_t m_offset = 0, line = 1, col = 1;
+    uint64_t m_offset = 0, line = 1, col = 1, prevLine = 1, prevCol = 1, prevOffset = 0;
     wchar_t GetChar();
     void EatChars(size_t n);
     void SkipWhite();
@@ -42,7 +42,10 @@ class Tokenizer
     String GetLine(uint64_t& n_col);
 
 public:
-    Tokenizer(const String& str, bool path = true);
+    bool SkipNext = false;
+    Token SkipToken{};
+
+    Tokenizer(const std::vector<String>& str, bool path = true);
 
     void UnexpToken(const String& msg);
 

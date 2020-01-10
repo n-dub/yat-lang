@@ -17,6 +17,8 @@
 #include "Tokenizer.h"
 #include "ErrorChecking.h"
 
+bool EofReturned = false;
+
 wchar_t Tokenizer::GetChar()
 {
     if (m_code[m_offset] == '\n')
@@ -92,18 +94,26 @@ Keyword Tokenizer::IsKeyword(const String& str)
     return Keyword::Last;
 }
 
-Tokenizer::Tokenizer(const String& str, bool path)
+Tokenizer::Tokenizer(const std::vector<String>& str, bool path)
 {
+    EofReturned = false;
+    m_code = L"";
     if (path)
     {
-        if (!ReadFile(str, m_code))
+        for (const String& s : str)
         {
-            throw Error(L"file " + str + L" not found\n");
+            if (!ReadFile(s, m_code))
+            {
+                throw Error(L"file " + s + L" not found\n");
+            }
         }
     }
     else
     {
-        m_code = str;
+        for (const String& s : str)
+        {
+            m_code += s;
+        }
     }
     m_code += L" \n \n "; // adding a bit of garbage to prevent overflow
     m_offset = 0;
@@ -113,7 +123,7 @@ void Tokenizer::UnexpToken(const String& msg)
 {
     uint64_t n_col;
     String r = GetLine(n_col);
-    throw UnexpectedToken(line, n_col, msg, r);
+    throw UnexpectedToken(prevLine, n_col, msg, r);
 }
 
 Token Tokenizer::ParseName()
@@ -241,8 +251,8 @@ wchar_t Tokenizer::ParseEscapeChar()
 
 String Tokenizer::GetLine(uint64_t& n_col)
 {
-    size_t s = m_code.find_last_of(L'\n', m_offset);
-    size_t e = m_code.find_first_of(L'\n', m_offset);
+    size_t s = m_code.find_last_of(L'\n', prevOffset);
+    size_t e = m_code.find_first_of(L'\n', prevOffset);
 
     String res = m_code.substr(s, e - s);
 
@@ -255,7 +265,7 @@ String Tokenizer::GetLine(uint64_t& n_col)
         }
     }
 
-    n_col = col - i;
+    n_col = prevCol - i;
 
     return res.substr(i);
 }
@@ -364,6 +374,9 @@ Token Tokenizer::ParseRawUntil(wchar_t tt)
     size_t off = m_code.find_first_of(tt, m_offset) - m_offset;
     String str = m_code.substr(m_offset - 2, off);
     EatChars(off);
+    prevCol = col;
+    prevLine = line;
+    prevOffset = m_offset;
     return Token(str, TokenType::String);
 }
 
@@ -584,18 +597,26 @@ Token Tokenizer::ParseOperator()
         UnexpToken(L"Invalid preprocessor directive.");
 
     default:
+        GetChar();
         UnexpToken(L"Expected an operator. Unknown character " + m_code[m_offset]);
     }
 }
 
-bool EofReturned = false;
-
 Token Tokenizer::Next()
 {
+    if (SkipNext)
+    {
+        SkipNext = false;
+        return SkipToken;
+    }
+
     if (m_offset >= m_code.size())
     {
         if (EofReturned) UnexpToken(L"End of file");
         EofReturned = true;
+        prevCol = col;
+        prevLine = line;
+        prevOffset = m_offset;
         return Token(L"EoF", TokenType::EoF);
     }
 
@@ -605,6 +626,9 @@ Token Tokenizer::Next()
     {
         if (EofReturned) UnexpToken(L"End of file");
         EofReturned = true;
+        prevCol = col;
+        prevLine = line;
+        prevOffset = m_offset;
         return Token(L"EoF", TokenType::EoF);
     }
 
@@ -614,6 +638,9 @@ Token Tokenizer::Next()
     {
         if (EofReturned) UnexpToken(L"End of file");
         EofReturned = true;
+        prevCol = col;
+        prevLine = line;
+        prevOffset = m_offset;
         return Token(L"EoF", TokenType::EoF);
     }
 
@@ -624,6 +651,9 @@ Token Tokenizer::Next()
     if (s == L'"')
     {
         GetChar(); // remove "
+        prevCol = col;
+        prevLine = line;
+        prevOffset = m_offset;
         return ParseStringLiteral<StringType::Regular>();
     }
 
@@ -635,6 +665,9 @@ Token Tokenizer::Next()
             GetChar(); // remove @
             GetChar(); // remove "
             GetChar(); // remove (
+            prevCol = col;
+            prevLine = line;
+            prevOffset = m_offset;
             return ParseStringLiteral<StringType::Raw>();
         }
         else
@@ -645,6 +678,9 @@ Token Tokenizer::Next()
 
     if (IsAlpha(s) || s == L'_')
     {
+        prevCol = col;
+        prevLine = line;
+        prevOffset = m_offset;
         return ParseName();
     }
 
@@ -656,11 +692,17 @@ Token Tokenizer::Next()
             throw Error(L"Invalid number literal. It doesn't fit the given number of bits.\n");
         }
         SkipWhite();
+        prevCol = col;
+        prevLine = line;
+        prevOffset = m_offset;
         return r;
     }
 
     auto r = ParseOperator();
     SkipWhite();
+    prevCol = col;
+    prevLine = line;
+    prevOffset = m_offset;
     return r;
 }
 

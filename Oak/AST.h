@@ -38,7 +38,15 @@ enum class NodeType
     // variable declaration
     Var,
     // range expression
-    Range
+    Range,
+    // string literal (str16)
+    String,
+    // type conversion
+    Cvt,
+    // is-statement
+    IfSt,
+    // while-loop
+    WhileLoop
 };
 
 class ASTNode
@@ -49,6 +57,22 @@ public:
     virtual void DebugPrint(size_t d) = 0;
     virtual ASTNode* TryEval() = 0;
     virtual Keyword GetTypeKW() = 0;
+    virtual void AddTypeCvt() = 0;
+};
+
+class Convert : public ASTNode
+{
+public:
+    ASTNode* value{};
+    Convert();
+    Convert(Keyword t);
+    Convert(ASTNode* v, Keyword t);
+    Keyword to{};
+    virtual bool isConstEval();
+    virtual void DebugPrint(size_t d);
+    virtual ASTNode* TryEval();
+    virtual Keyword GetTypeKW();
+    virtual void AddTypeCvt();
 };
 
 class ConstLeaf;
@@ -60,7 +84,7 @@ public:
     Range(ConstLeaf* start, ConstLeaf* end, uint8_t flags);
     ConstLeaf *l, *r;
 
-    enum BType
+    enum
     {
         LeftInclusive  = 0b01,
         RightInclusive = 0b10
@@ -71,6 +95,7 @@ public:
     virtual Keyword GetTypeKW() override;
     virtual ASTNode* TryEval() override;
     size_t GetSize();
+    virtual void AddTypeCvt();
 };
 
 class ConstLeaf : public ASTNode
@@ -84,6 +109,19 @@ public:
     virtual bool isConstEval();
     int64_t GetNumberS();
     uint64_t GetNumberU();
+    virtual void AddTypeCvt();
+};
+
+class StrLeaf : public ASTNode
+{
+public:
+    Token data;
+    StrLeaf(const Token& data);
+    virtual void DebugPrint(size_t d) override;
+    virtual Keyword GetTypeKW() override;
+    virtual ASTNode* TryEval() override;
+    virtual bool isConstEval();
+    virtual void AddTypeCvt();
 };
 
 // Unary Operator representation
@@ -97,6 +135,7 @@ public:
     virtual Keyword GetTypeKW() override;
     virtual ASTNode* TryEval() override;
     virtual bool isConstEval();
+    virtual void AddTypeCvt();
 };
 
 // Binary Operator representation
@@ -111,34 +150,22 @@ public:
     virtual Keyword GetTypeKW() override;
     virtual ASTNode* TryEval() override;
     virtual bool isConstEval();
+    virtual void AddTypeCvt();
 };
 
 class StatementBlock : public ASTNode
 {
 public:
     StatementBlock();
+    // size of all local variables in bytes
+    size_t bytes = 0;
     std::vector<ASTNode*> children;
     bool is_fn = false;
     virtual void DebugPrint(size_t d) override;
     virtual Keyword GetTypeKW() override;
     virtual ASTNode* TryEval() override;
+    virtual void AddTypeCvt();
 };
-
-/*
-struct FnParam
-{
-    FnParam(Keyword t, const String& n, ConstLeaf* opt = nullptr)
-    {
-        type = t;
-        name = n;
-        this->opt = opt;
-    }
-
-    Keyword type{};
-    String name;
-    ConstLeaf* opt = nullptr;
-};
-*/
 
 class Var;
 
@@ -152,6 +179,7 @@ public:
     virtual void DebugPrint(size_t d) override;
     virtual Keyword GetTypeKW() override;
     virtual ASTNode* TryEval() override;
+    virtual void AddTypeCvt();
 };
 
 class FnCall : public ASTNode
@@ -165,6 +193,7 @@ public:
     // TODO: func may be nullptr
     virtual Keyword GetTypeKW() override;
     virtual ASTNode* TryEval() override;
+    virtual void AddTypeCvt();
 };
 
 // variable declaration
@@ -175,23 +204,56 @@ public:
     Var(String n, Keyword t, bool m = false, Range* a = nullptr);
     String name;
     Keyword var_type = Keyword::Last;
-    bool mut = false, is_arr = false;
+    bool mut = false, is_arr = false, is_param = false;
     Range* arr = nullptr;
+    ASTNode* initial = nullptr;
+
     virtual void DebugPrint(size_t d) override;
     virtual Keyword GetTypeKW() override;
     virtual ASTNode* TryEval() override;
+    virtual void AddTypeCvt();
 };
 
 // using value of a variable in a statement
 class VarLeaf : public ASTNode
 {
 public:
-    Var* data;
+    Var* data{};
     VarLeaf(Var* data);
     virtual void DebugPrint(size_t d) override;
     virtual Keyword GetTypeKW() override;
     virtual ASTNode* TryEval() override;
     virtual bool isConstEval();
+    virtual void AddTypeCvt();
+};
+
+// if-statement
+class IfStatement : public ASTNode
+{
+public:
+    ASTNode* condition{};
+    StatementBlock* then_b{};
+    StatementBlock* else_b{};
+    IfStatement();
+    virtual void DebugPrint(size_t d) override;
+    virtual Keyword GetTypeKW() override;
+    virtual ASTNode* TryEval() override;
+    virtual bool isConstEval();
+    virtual void AddTypeCvt();
+};
+
+// while-loop
+class WhileLoop : public ASTNode
+{
+public:
+    ASTNode* condition{};
+    StatementBlock* body{};
+    WhileLoop();
+    virtual void DebugPrint(size_t d) override;
+    virtual Keyword GetTypeKW() override;
+    virtual ASTNode* TryEval() override;
+    virtual bool isConstEval();
+    virtual void AddTypeCvt();
 };
 
 class Namespace

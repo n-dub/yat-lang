@@ -44,6 +44,22 @@ Keyword BinOp::GetTypeKW()
 {
     Keyword lr = l->GetTypeKW(), rr = r->GetTypeKW();
 
+    switch (oper.type)
+    {
+    case TokenType::OperLAnd:
+    case TokenType::OperLOr:
+    case TokenType::OperLNot:
+    case TokenType::OperLess:
+    case TokenType::OperGreater:
+    case TokenType::OperEqual:
+    case TokenType::OperNEqual:
+    case TokenType::OperLEqual:
+    case TokenType::OperGEqual:
+    {
+        return Keyword::kw_bool;
+    }
+    }
+
     if (GetTypeSize(lr) < GetTypeSize(rr))
     {
         return rr;
@@ -54,11 +70,13 @@ Keyword BinOp::GetTypeKW()
 
 ASTNode* BinOp::TryEval()
 {
-    ConstLeaf* le = (ConstLeaf*)l->TryEval();
-    if (!le) return nullptr;
-    ConstLeaf* re = (ConstLeaf*)r->TryEval();
-    if (!re) return nullptr;
+    ConstLeaf *le, *re;
+    l = le = (ConstLeaf*)l->TryEval();
+    if (!l) return nullptr;
+    r = re = (ConstLeaf*)r->TryEval();
+    if (!r) return nullptr;
 
+    int64_t res = 0;
     switch (oper.type)
     {
         // TODO: constant evaluation
@@ -71,12 +89,29 @@ ASTNode* BinOp::TryEval()
             break;
     }
 
+    // return new ConstLeaf(Token(std::to_wstring(res), type));
     return nullptr;
 }
 
 bool BinOp::isConstEval()
 {
     return l->isConstEval() && r->isConstEval();
+}
+
+void BinOp::AddTypeCvt()
+{
+    l->AddTypeCvt();
+    r->AddTypeCvt();
+    size_t sl = GetTypeSize(l->GetTypeKW()), sr = GetTypeSize(r->GetTypeKW());
+
+    if (sl < sr)
+    {
+        r = new Convert(r, l->GetTypeKW());
+    }
+    else if (sl > sr)
+    {
+        l = new Convert(l, r->GetTypeKW());
+    }
 }
 
 VarLeaf::VarLeaf(Var* data)
@@ -99,12 +134,16 @@ Keyword VarLeaf::GetTypeKW()
 
 ASTNode* VarLeaf::TryEval()
 {
-    return false;
+    return nullptr;
 }
 
 bool VarLeaf::isConstEval()
 {
     return !data->mut;
+}
+
+void VarLeaf::AddTypeCvt()
+{
 }
 
 ConstLeaf::ConstLeaf(const Token& data)
@@ -126,7 +165,7 @@ Keyword ConstLeaf::GetTypeKW()
 
 ASTNode* ConstLeaf::TryEval()
 {
-    return false;
+    return nullptr;
 }
 
 bool ConstLeaf::isConstEval()
@@ -142,6 +181,10 @@ int64_t ConstLeaf::GetNumberS()
 uint64_t ConstLeaf::GetNumberU()
 {
     return StringToInt<uint64_t>(data.data);
+}
+
+void ConstLeaf::AddTypeCvt()
+{
 }
 
 StatementBlock::StatementBlock()
@@ -166,7 +209,15 @@ Keyword StatementBlock::GetTypeKW()
 
 ASTNode* StatementBlock::TryEval()
 {
-    return false;
+    return nullptr;
+}
+
+void StatementBlock::AddTypeCvt()
+{
+    for (ASTNode* node : children)
+    {
+        node->AddTypeCvt();
+    }
 }
 
 UnOp::UnOp()
@@ -188,12 +239,17 @@ Keyword UnOp::GetTypeKW()
 
 ASTNode* UnOp::TryEval()
 {
-    return false;
+    return nullptr;
 }
 
 bool UnOp::isConstEval()
 {
     return operand->isConstEval();
+}
+
+void UnOp::AddTypeCvt()
+{
+    operand->AddTypeCvt();
 }
 
 Lambda::Lambda()
@@ -224,7 +280,12 @@ Keyword Lambda::GetTypeKW()
 
 ASTNode* Lambda::TryEval()
 {
-    return false;
+    return nullptr;
+}
+
+void Lambda::AddTypeCvt()
+{
+    def->AddTypeCvt();
 }
 
 FnCall::FnCall()
@@ -249,7 +310,18 @@ Keyword FnCall::GetTypeKW()
 
 ASTNode* FnCall::TryEval()
 {
-    return false;
+    return nullptr;
+}
+
+void FnCall::AddTypeCvt()
+{
+    for (int i = 0; i < params.size(); ++i)
+    {
+        if (params[i]->GetTypeKW() != func->params[i]->GetTypeKW())
+        {
+            params[i] = new Convert(params[i], func->params[i]->GetTypeKW());
+        }
+    }
 }
 
 Var::Var()
@@ -280,6 +352,12 @@ void Var::DebugPrint(size_t d)
             << KeywordStr[(int)var_type] << L" " << name << L" in range:" << L"\n";
         arr->DebugPrint(d + 1);
     }
+    if (initial)
+    {
+        AddTabs(d);
+        std::wcout << L"Initialized with:\n";
+        initial->DebugPrint(d + 1);
+    }
 }
 
 Keyword Var::GetTypeKW()
@@ -289,7 +367,17 @@ Keyword Var::GetTypeKW()
 
 ASTNode* Var::TryEval()
 {
-    return false;
+    return nullptr;
+}
+
+void Var::AddTypeCvt()
+{
+    initial->AddTypeCvt();
+
+    if (GetTypeSize(initial->GetTypeKW()) != GetTypeSize(var_type))
+    {
+        initial = new Convert(initial, var_type);
+    }
 }
 
 void AST::DebugPrint()
@@ -333,13 +421,13 @@ void Range::DebugPrint(size_t d)
 
     l->DebugPrint(d + 1);
     AddTabs(d);
-    std::wcout << (flags & BType::LeftInclusive ? L"(Inclusive) " : L"(Exclusive) ");
+    std::wcout << (flags & LeftInclusive ? L"(Inclusive) " : L"(Exclusive) ");
 
     std::wcout << L"AND\n";
 
     r->DebugPrint(d + 1);
     AddTabs(d);
-    std::wcout << (flags & BType::RightInclusive ? L"(Inclusive)" : L"(Exclusive)") << L"\n";
+    std::wcout << (flags & RightInclusive ? L"(Inclusive)" : L"(Exclusive)") << L"\n";
 }
 
 Keyword Range::GetTypeKW()
@@ -356,11 +444,11 @@ size_t Range::GetSize()
 {
     int64_t res = r->GetNumberS() - l->GetNumberS();
 
-    if (flags & BType::LeftInclusive)
+    if (flags & LeftInclusive)
     {
         --res;
     }
-    if (flags & BType::RightInclusive)
+    if (flags & RightInclusive)
     {
         --res;
     }
@@ -368,8 +456,166 @@ size_t Range::GetSize()
     return res;
 }
 
+void Range::AddTypeCvt()
+{
+}
+
 bool ASTNode::isConstEval()
 {
     return false;
+}
+
+StrLeaf::StrLeaf(const Token& data)
+{
+    type = NodeType::String;
+    this->data = data;
+}
+
+void StrLeaf::DebugPrint(size_t d)
+{
+    AddTabs(d);
+    std::wcout << L"String literal: " << data.data << L"\n";
+}
+
+Keyword StrLeaf::GetTypeKW()
+{
+    return Keyword::kw_str16;
+}
+
+ASTNode* StrLeaf::TryEval()
+{
+    return nullptr;
+}
+
+bool StrLeaf::isConstEval()
+{
+    return false;
+}
+
+void StrLeaf::AddTypeCvt()
+{
+}
+
+IfStatement::IfStatement()
+{
+    type = NodeType::IfSt;
+}
+
+void IfStatement::DebugPrint(size_t d)
+{
+    AddTabs(d);
+    std::wcout << L"If:\n";
+    condition->DebugPrint(d + 1);
+    AddTabs(d);
+    std::wcout << L"Then:\n";
+    then_b->DebugPrint(d + 1);
+    if (else_b)
+    {
+        AddTabs(d);
+        std::wcout << L"Else:\n";
+        else_b->DebugPrint(d + 1);
+    }
+}
+
+Keyword IfStatement::GetTypeKW()
+{
+    return Keyword::Last;
+}
+
+ASTNode* IfStatement::TryEval()
+{
+    return nullptr;
+}
+
+bool IfStatement::isConstEval()
+{
+    return false;
+}
+
+void IfStatement::AddTypeCvt()
+{
+    condition->AddTypeCvt();
+    then_b->AddTypeCvt();
+    else_b->AddTypeCvt();
+}
+
+WhileLoop::WhileLoop()
+{
+    type = NodeType::WhileLoop;
+}
+
+void WhileLoop::DebugPrint(size_t d)
+{
+    AddTabs(d);
+    std::wcout << L"WHILE:\n";
+    condition->DebugPrint(d + 1);
+    AddTabs(d);
+    std::wcout << L"DO:\n";
+    body->DebugPrint(d + 1);
+}
+
+Keyword WhileLoop::GetTypeKW()
+{
+    return Keyword::Last;
+}
+
+ASTNode* WhileLoop::TryEval()
+{
+    return nullptr;
+}
+
+bool WhileLoop::isConstEval()
+{
+    return false;
+}
+
+void WhileLoop::AddTypeCvt()
+{
+    condition->AddTypeCvt();
+    body->AddTypeCvt();
+}
+
+Convert::Convert()
+{
+    type = NodeType::Cvt;
+}
+
+Convert::Convert(Keyword t)
+{
+    type = NodeType::Cvt;
+    to = t;
+}
+
+Convert::Convert(ASTNode* v, Keyword t)
+{
+    type = NodeType::Cvt;
+    to = t;
+    value = v;
+}
+
+bool Convert::isConstEval()
+{
+    return value->isConstEval();;
+}
+
+void Convert::DebugPrint(size_t d)
+{
+    AddTabs(d);
+    std::wcout << L"Convert to " << KeywordStr[(size_t)to] << L":\n";
+    value->DebugPrint(d + 1);
+}
+
+ASTNode* Convert::TryEval()
+{
+    return nullptr;
+}
+
+Keyword Convert::GetTypeKW()
+{
+    return to;
+}
+
+void Convert::AddTypeCvt()
+{
 }
 

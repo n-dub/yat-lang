@@ -92,65 +92,65 @@ OperPrec GetPrecedence(TokenType oper, bool unary)
     case TokenType::AssignBWAnd:
     case TokenType::AssignBWOr:
     case TokenType::AssignXor:
-        return OperPrec(false, 10);
+        return OperPrec(10);
 
     case TokenType::OperPlus:
-        return OperPrec(false, 26);
+        return OperPrec(26);
     case TokenType::OperMin:
-        return unary ? OperPrec(true, 29) : OperPrec(false, 26);
+        return unary ? OperPrec(29) : OperPrec(26);
     case TokenType::OperMul:
-        return OperPrec(false, 27);
+        return OperPrec(27);
     case TokenType::OperPow:
-        return OperPrec(true, 28);
+        return OperPrec(28);
     case TokenType::OperDiv:
-        return OperPrec(false, 27);
+        return OperPrec(27);
     case TokenType::OperPCent:
-        return OperPrec(false, 27);
+        return OperPrec(27);
     case TokenType::OperInc:
     case TokenType::OperDec:
-        return unary ? OperPrec(true, 29) : OperPrec(false, 50);
+        return unary ? OperPrec(29) : OperPrec(50);
     case TokenType::OperLShift:
-        return OperPrec(false, 25);
+        return OperPrec(25);
     case TokenType::OperRShift:
-        return OperPrec(false, 25);
+        return OperPrec(25);
     case TokenType::OperBWAnd:
-        return OperPrec(false, 22);
+        return OperPrec(22);
     case TokenType::OperBWOr:
-        return OperPrec(false, 20);
+        return OperPrec(20);
     case TokenType::OperNot:
-        return OperPrec(true, 30);
+        return OperPrec(30);
     case TokenType::OperXor:
-        return OperPrec(false, 23);
+        return OperPrec(23);
 
     case TokenType::OperLess:
-        return OperPrec(false, 24);
+        return OperPrec(24);
     case TokenType::OperGreater:
-        return OperPrec(false, 24);
+        return OperPrec(24);
     case TokenType::OperEqual:
-        return OperPrec(false, 23);
+        return OperPrec(23);
     case TokenType::OperNEqual:
-        return OperPrec(false, 23);
+        return OperPrec(23);
     case TokenType::OperLEqual:
-        return OperPrec(false, 24);
+        return OperPrec(24);
     case TokenType::OperGEqual:
-        return OperPrec(false, 24);
+        return OperPrec(24);
 
     case TokenType::OperLAnd:
-        return unary ? OperPrec(true, 60) : OperPrec(false, 19);
+        return unary ? OperPrec(60) : OperPrec(19);
     case TokenType::OperLOr:
-        return OperPrec(false, 18);
+        return OperPrec(18);
     case TokenType::OperLNot:
-        return OperPrec(true, 30);
+        return OperPrec(30);
 
     case TokenType::LBracket:
-        return OperPrec(false, 0);
+        return OperPrec(0);
     case TokenType::LParen:
-        return OperPrec(false, 0);
+        return OperPrec(0);
 
     case TokenType::Dot:
-        return OperPrec(false, 40);
+        return OperPrec(40);
     }
-    return OperPrec(false, 0);
+    return OperPrec(0);
 }
 
 bool IsNumber(TokenType type)
@@ -276,10 +276,34 @@ size_t GetTypeSize(Keyword kw)
     case Keyword::kw_i64:
     case Keyword::kw_u64:
     case Keyword::kw_f64:
+    case Keyword::kw_str16:
     case Keyword::kw_fn:
         return 8;
         break;
     }
     return 0;
+}
+
+TokenType NegateLOp(TokenType op)
+{
+    switch (op)
+    {
+    case TokenType::OperLess:
+        return TokenType::OperGEqual;
+    case TokenType::OperGreater:
+        return TokenType::OperLEqual;
+
+    case TokenType::OperEqual:
+        return TokenType::OperNEqual;
+    case TokenType::OperNEqual:
+        return TokenType::OperEqual;
+
+    case TokenType::OperLEqual:
+        return TokenType::OperGreater;
+    case TokenType::OperGEqual:
+        return TokenType::OperLess;
+    }
+
+    return TokenType::EoF;
 }
 

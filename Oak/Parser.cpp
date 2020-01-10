@@ -28,9 +28,9 @@ if (cur_tok.type != TokenType:: ##_ttype) {                     \
     m_tok->UnexpToken(_msg);                                    \
 } 
 
-Parser::Parser(Tokenizer& t)
+Parser::Parser(Tokenizer* t)
 {
-    m_tok = &t;
+    m_tok = t;
 }
 
 void Parser::Parse(AST& ast)
@@ -39,7 +39,20 @@ void Parser::Parse(AST& ast)
 
     while (cur_tok.type != TokenType::EoF)
     {
-        m_nspace = new Namespace();
+        if (m_nspace == nullptr || m_nspace->block)
+        {
+            m_nspace = new Namespace();
+        }
+
+        if (cur_tok.data == L"import")
+        {
+            cur_tok = m_tok->Next();
+            cur_tok = m_tok->Next();
+            if (cur_tok.type == TokenType::Semi)
+            {
+                cur_tok = m_tok->Next();
+            }
+        }
 
         if (cur_tok.type == TokenType::Keyword)
         {
@@ -48,16 +61,24 @@ void Parser::Parse(AST& ast)
                 cur_tok = m_tok->Next();
                 if (cur_tok.type == TokenType::Name)
                 {
-                    m_nspace->name = cur_tok.data;
+                    m_nspace->name = L"";
+                    while (cur_tok.type == TokenType::Dot
+                        || cur_tok.type == TokenType::Name)
+                    {
+                        m_nspace->name += cur_tok.data;
+                        cur_tok = m_tok->Next();
+                    }
                 }
                 else
                 {
                     m_tok->UnexpToken(L"Expected name of namespace");
                 }
 
-                MATCH(LBrace, L"Expected a statement block in braces, that defines the namespace");
+                MATCH_CUR(LBrace, L"Expected a statement block in braces, that defines the namespace");
                 cur_tok = m_tok->Next();
                 m_nspace->block = ParseBlock(false);
+                m_nspace->block->AddTypeCvt(); // add type coversion where necessary
+
                 if (cur_tok.type != TokenType::EoF)
                 {
                     cur_tok = m_tok->Next();
@@ -78,11 +99,60 @@ void Parser::Parse(AST& ast)
             m_tok->UnexpToken(L"Program in Oak consists of namespaces, so only either "
                 L"'nspace' or 'using' keywords are allowed outside of namespace.");
         }
+        if (m_nspace->block)
+        {
+            ast.prog.push_back(m_nspace);
+        }
     }
-    ast.prog.push_back(m_nspace);
 }
 
-Var* Parser::GetVariable(const String& v)
+Var* Parser::GetVariable(String v, String* fname)
+{
+    Var* res = GetVariable_(v);
+    if (res)
+    {
+        if (fname) *fname = res->name;
+        return res; 
+    }
+
+    res = GetVariable_(m_nspace->name + L"." + v);
+    if (res)
+    {
+        if (fname) *fname = res->name;
+        return res;
+    }
+
+    for (String& s : m_nspace->uses)
+    {
+        res = GetVariable_(s + L"." + v);
+        if (res)
+        {
+            if (fname) *fname = res->name;
+            return res; 
+        }
+    }
+
+    while (cur_tok.type == TokenType::Dot || cur_tok.type == TokenType::Name)
+    {
+        cur_tok = m_tok->Next();
+        if (cur_tok.type == TokenType::Dot)
+        {
+            cur_tok = m_tok->Next();
+            v += L".";
+            v += cur_tok.data;
+        }
+        res = GetVariable(v);
+        if (res)
+        {
+            if (fname) *fname = res->name;
+            return res;
+        }
+    }
+
+    return nullptr;
+}
+
+inline Var* Parser::GetVariable_(const String& v)
 {
     for (auto& vec : m_vars)
     {
@@ -95,12 +165,10 @@ Var* Parser::GetVariable(const String& v)
         }
     }
 
-    std::wstringstream ss;
-    ss << L"Usage of undeclared variable " << v;
-    m_tok->UnexpToken(ss.str());
+    return nullptr;
 }
 
-inline void Parser::AddVariable(Var* var)
+inline void Parser::AddVariable(Var* var, int64_t idx)
 {
     for (auto& vec : m_vars)
     {
@@ -110,13 +178,20 @@ inline void Parser::AddVariable(Var* var)
             {
                 std::wstringstream ss;
                 ss << L"Variable " << var->name << (var->mut ? L"mut " : L"")
-                    << "has already been defined";
-                m_tok->UnexpToken(L"");
+                    << " has already been defined";
+                m_tok->UnexpToken(ss.str());
             }
         }
     }
 
-    m_vars[m_vars.size() - 1].push_back(var);
+    if (idx < 0)
+    {
+        m_vars[m_vars.size() - 1].push_back(var);
+    }
+    else
+    {
+        m_vars[idx].push_back(var);
+    }
 }
 
 StatementBlock* Parser::ParseBlock(bool is_fn)
@@ -134,7 +209,32 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
             ParsePreProc();
             break;
         case TokenType::Keyword:
-            if (cur_tok.kw_type == Keyword::kw_ret)
+            if (cur_tok.kw_type == Keyword::kw_if)
+            {
+                r->children.push_back(ParseIf());
+                break;
+            }
+            else if (cur_tok.kw_type == Keyword::kw_while)
+            {
+                cur_tok = m_tok->Next();
+                WhileLoop* lp = new WhileLoop();
+                Keyword kw;
+                lp->condition = ParseExpression(false, kw);
+                if (kw != Keyword::kw_bool)
+                {
+                    m_tok->UnexpToken(L"Expected a boolean expression in while loop");
+                }
+                if (cur_tok.type != TokenType::LBrace)
+                {
+                    m_tok->UnexpToken(L"Expected a statement block. Braces are required in loops");
+                }
+                cur_tok = m_tok->Next();
+                lp->body = ParseBlock(true);
+                lp->body->is_fn = false;
+                r->children.push_back(lp);
+                break;
+            }
+            else if (cur_tok.kw_type == Keyword::kw_ret)
             {
                 UnOp* ret = new UnOp();
                 ret->oper = cur_tok;
@@ -147,7 +247,7 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
 
                 r->children.push_back(ret);
 
-                cur_tok = m_tok->Next();
+                // cur_tok = m_tok->Next();
                 break;
             }
             else if (cur_tok.kw_type == Keyword::kw_asm)
@@ -208,6 +308,7 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
             m_tok->UnexpToken(L"A statement must begin with either a type name, a declared variable name or a prefix operator.");
         }
         }
+
         cur_tok = m_tok->Next();
         if (cur_tok.type == TokenType::Semi)
         {
@@ -215,8 +316,13 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
         }
     }
 
+    for (Var* v : m_vars[m_vars.size() - 1])
+    {
+        r->bytes += GetTypeSize(v->var_type) * (v->is_arr ? v->arr->GetSize() : 1);
+    }
+
     m_pp.Reset();
-    m_vars.pop_back();
+    if (is_fn) m_vars.pop_back();
     r->is_fn = is_fn;
     //cur_tok = m_tok->Next();
     return r;
@@ -239,6 +345,7 @@ std::vector<ASTNode*> Parser::ParseStatement()
             }
             return { vd };
         }
+        throw; // possibly dead code now:
 
         BinOp* op = new BinOp();
         op->oper = cur_tok;
@@ -289,13 +396,14 @@ ASTNode* Parser::ParseExpression(bool fn, Keyword& exp_type)
 
         m_vars.push_back(r->params); // push all parameters
 
-        StatementBlock* sb;
         MATCH_CUR(Arrow, L"Expected function return type after arrow '->'.");
         cur_tok = m_tok->Next();
 
-        Keyword ret_type = cur_tok.kw_type;
+        exp_type = cur_tok.kw_type;
 
         cur_tok = m_tok->Next();
+        return r;
+        /*
         if (cur_tok.type == TokenType::LBrace)
         {
             cur_tok = m_tok->Next();
@@ -316,6 +424,7 @@ ASTNode* Parser::ParseExpression(bool fn, Keyword& exp_type)
         r->def = sb;
         r->ret_type = ret_type;
         return r;
+        */
     }
     // otherwise parse constant, operation, function call or conditional
 
@@ -325,12 +434,68 @@ ASTNode* Parser::ParseExpression(bool fn, Keyword& exp_type)
         exp_type = Keyword::kw_rng;
         return ParseRange();
     }
-    
+
     ASTNode* node = ShuntingYard();
 
     exp_type = node->GetTypeKW();
 
     return node;
+}
+
+inline IfStatement* Parser::ParseIf()
+{
+    IfStatement* st = new IfStatement();
+
+    cur_tok = m_tok->Next();
+
+    Keyword et;
+    st->condition = ParseExpression(false, et);
+    if (et != Keyword::kw_bool)
+    {
+        m_tok->UnexpToken(L"Expected a boolean expression");
+    }
+
+    if (cur_tok.type != TokenType::LBrace)
+    {
+        m_tok->UnexpToken(L"Expected a statement block. Braces are required in conditions and loops");
+    }
+    cur_tok = m_tok->Next();
+    st->then_b = ParseBlock(true);
+    st->then_b->is_fn = false;
+    cur_tok = m_tok->Next();
+
+    if (cur_tok.kw_type == Keyword::kw_else)
+    {
+        cur_tok = m_tok->Next();
+        if (cur_tok.kw_type == Keyword::kw_if)
+        {
+            IfStatement* else_if = ParseIf();
+            StatementBlock* else_b = new StatementBlock();
+            else_b->children.push_back(else_if);
+            else_b->is_fn = false;
+            else_b->bytes = 0;
+            st->else_b = else_b;
+        }
+        else
+        {
+            if (cur_tok.type != TokenType::LBrace)
+            {
+                m_tok->UnexpToken(L"Expected a statement block. Braces are required in conditions");
+            }
+
+            cur_tok = m_tok->Next();
+            st->else_b = ParseBlock(true);
+            st->else_b->is_fn = false;
+        }
+    }
+    else
+    {
+        // there is no 'else', so we just add previously removed token '}'
+        m_tok->SkipNext = true;
+        m_tok->SkipToken = cur_tok;
+    }
+
+    return st;
 }
 
 inline std::vector<Var*> Parser::ParseParamList()
@@ -370,12 +535,14 @@ Var* Parser::ParseVarDecl()
 
     // i32 a = 10;  // stop on '='  (TokenType::Assign)
     // i32 a;       // stop on ';'  (TokenType::Semi)
-    // i32 a, ...   // stop on ','  (TokenType::Comma) used in param list
-    // i32 a -> ... // stop on '->' (TokenType::Arrow) used in param list
+    // i32 a, ...   // stop on ','  (TokenType::Comma)  used in param list
+    // i32 a -> ... // stop on '->' (TokenType::Arrow)  used in param list
+    // i32 a) ->    // stop on ')'  (TokenType::RParen) used in param list
     while (cur_tok.type != TokenType::Assign
         && cur_tok.type != TokenType::Semi
         && cur_tok.type != TokenType::Comma
-        && cur_tok.type != TokenType::Arrow)
+        && cur_tok.type != TokenType::Arrow
+        && cur_tok.type != TokenType::RParen)
     {
         if (cur_tok.type == TokenType::Keyword)
         {
@@ -416,7 +583,7 @@ Var* Parser::ParseVarDecl()
                     {
                         Keyword t;
                         ASTNode* range = ParseExpression(false, t);
-                        
+
                         if (range->type == NodeType::Range)
                         {
                             array_rgn = (Range*)range;
@@ -449,14 +616,7 @@ Var* Parser::ParseVarDecl()
         {
             if (cur_tok.type == TokenType::Name)
             {
-                if (cur_tok.data == L"main")
-                {
-                    name = L"_main";
-                }
-                else
-                {
-                    name = cur_tok.data;
-                }
+                name = m_nspace->name + L"." + cur_tok.data;
             }
             else
             {
@@ -473,7 +633,64 @@ Var* Parser::ParseVarDecl()
     r->arr = array_rgn;
     r->is_arr = is_arr;
 
-    AddVariable(r);
+    Keyword kw;
+    if (cur_tok.type == TokenType::Assign)
+    {
+        cur_tok = m_tok->Next();
+
+        if (var_type == Keyword::kw_fn)
+        {
+            Keyword ret_type;
+            Lambda* init = (Lambda*)ParseExpression(true, ret_type);
+            r->initial = init;
+            r->var_type = Keyword::kw_fn;
+
+            AddVariable(r, m_vars.size() - 2); // add variable before parsing to allow recursion
+
+            StatementBlock* sb;
+            if (cur_tok.type == TokenType::LBrace)
+            {
+                cur_tok = m_tok->Next();
+                sb = ParseBlock(true);
+            }
+            else
+            {
+                // only single statements are allowed in lambdas without braces {}
+                auto st = ParseStatement();
+                sb = new StatementBlock();
+                for (ASTNode* s : st)
+                {
+                    sb->children.push_back(s);
+                }
+            }
+            m_vars.pop_back();
+
+            init->def = sb;
+            init->ret_type = ret_type;
+        }
+        else
+        {
+            r->initial = ParseExpression(false, kw);
+            AddVariable(r);
+        }
+    }
+    else
+    {
+        AddVariable(r);
+    }
+
+    while (cur_tok.type != TokenType::Semi
+        && cur_tok.type != TokenType::Arrow
+        && cur_tok.type != TokenType::Comma
+        && cur_tok.type != TokenType::RParen)
+    {
+        cur_tok = m_tok->Next();
+    }
+
+    if (r->var_type == Keyword::kw_let)
+    {
+        r->var_type = kw;
+    }
 
     return r;
 }
@@ -519,7 +736,7 @@ inline Range* Parser::ParseRange()
     Range* res = new Range();
     if (cur_tok.type == TokenType::LBracket)
     {
-        res->flags |= Range::BType::LeftInclusive;
+        res->flags |= Range::LeftInclusive;
     }
     cur_tok = m_tok->Next();
 
@@ -550,7 +767,7 @@ inline Range* Parser::ParseRange()
 
     if (cur_tok.type == TokenType::RBracket)
     {
-        res->flags |= Range::BType::RightInclusive;
+        res->flags |= Range::RightInclusive;
     }
     cur_tok = m_tok->Next();
 
@@ -564,17 +781,18 @@ inline ASTNode* Parser::ShuntingYard()
 {
     size_t LBrackets = 0;
     size_t LParens = 0;
-    // Operator's token : Is operator unary
-    std::vector<std::pair<Token, bool>> operatorStack;
+    // Operator's token : Number of operands
+    std::vector<std::pair<Token, int>> operatorStack;
     std::vector<ASTNode*> exprStack;
 
-    bool lastNumVar = true; // last token was a number or a variable
-    while (cur_tok.type != TokenType::Semi)
+    bool lastNumVar = false; // last token was a number or a variable
+    while (cur_tok.type != TokenType::Semi
+        && cur_tok.type != TokenType::LBrace)
     {
         if (cur_tok.type == TokenType::LParen ||
             cur_tok.type == TokenType::LBracket)
         {
-            operatorStack.push_back(std::make_pair(cur_tok, true));
+            operatorStack.push_back(std::make_pair(cur_tok, 1));
             lastNumVar = false;
             if (cur_tok.type == TokenType::LBracket)
             {
@@ -590,23 +808,47 @@ inline ASTNode* Parser::ShuntingYard()
             exprStack.push_back(new ConstLeaf(cur_tok));
             lastNumVar = true;
         }
+        else if (cur_tok.type == TokenType::String)
+        {
+            exprStack.push_back(new StrLeaf(cur_tok));
+            lastNumVar = true;
+        }
         else if (cur_tok.type == TokenType::Name)
         {
             Var* var = GetVariable(cur_tok.data);
-            exprStack.push_back(new VarLeaf(var));
-            lastNumVar = true;
+
+            if (!var)
+            {
+                m_tok->UnexpToken(L"Usage of undeclared variable");
+            }
+
+            cur_tok.data = var->name;
+            if (var->var_type == Keyword::kw_fn)
+            {
+                Lambda* b = (Lambda*)var->initial;
+                operatorStack.push_back(std::make_pair(cur_tok, b->params.size()));
+            }
+            else
+            {
+                exprStack.push_back(new VarLeaf(var));
+                lastNumVar = true;
+            }
+        }
+        else if (cur_tok.type == TokenType::Comma)
+        {
+            // ignore
         }
         else if (cur_tok.type == TokenType::RParen)
         {
             if (LParens <= 0) break;
-            std::pair<Token, bool> top_op = operatorStack[operatorStack.size() - 1];
+            std::pair<Token, int> top_op = operatorStack[operatorStack.size() - 1];
 
             while (top_op.first.type != TokenType::LParen)
             {
                 ASTNode* e2 = exprStack[exprStack.size() - 1];
                 exprStack.pop_back();
 
-                if (!top_op.second) // operator is binary
+                if (top_op.second == 2) // operator is binary
                 {
                     ASTNode* e1 = exprStack[exprStack.size() - 1];
                     exprStack.pop_back();
@@ -614,15 +856,16 @@ inline ASTNode* Parser::ShuntingYard()
                     BinOp* node = new BinOp();
                     node->oper = top_op.first;
 
-                    if (!GetPrecedence(top_op.first.type, top_op.second).right)
-                    {
-                        node->l = e1;
-                        node->r = e2;
-                    }
-                    else
+                    // TODO: check for other right-associative operators
+                    if (node->oper.type != TokenType::Assign)
                     {
                         node->r = e1;
                         node->l = e2;
+                    }
+                    else
+                    {
+                        node->l = e1;
+                        node->r = e2;
                     }
 
                     exprStack.push_back(node);
@@ -640,20 +883,41 @@ inline ASTNode* Parser::ShuntingYard()
             }
 
             operatorStack.pop_back();
+
+            if (operatorStack.size() &&
+                operatorStack[operatorStack.size() - 1].first.type == TokenType::Name)
+            {
+                FnCall* fc = new FnCall();
+                fc->FnName = operatorStack[operatorStack.size() - 1].first;
+                String final_name;
+                fc->func = (Lambda*)GetVariable(fc->FnName.data, &final_name)->initial;
+                fc->FnName.data = final_name;
+
+                for (int i = 0; i < operatorStack[operatorStack.size() - 1].second; ++i)
+                {
+                    ASTNode* e0 = exprStack[exprStack.size() - 1];
+                    exprStack.pop_back();
+
+                    fc->params.push_back(e0);
+                }
+                exprStack.push_back(fc);
+                operatorStack.pop_back();
+            }
+
             lastNumVar = true;
             --LParens;
         }
         else if (cur_tok.type == TokenType::RBracket)
         {
             if (LBrackets <= 0) break;
-            std::pair<Token, bool> top_op = operatorStack[operatorStack.size() - 1];
+            std::pair<Token, int> top_op = operatorStack[operatorStack.size() - 1];
 
             while (top_op.first.type != TokenType::LBracket)
             {
                 ASTNode* e2 = exprStack[exprStack.size() - 1];
                 exprStack.pop_back();
 
-                if (!top_op.second) // operator is binary
+                if (top_op.second == 2) // operator is binary
                 {
                     ASTNode* e1 = exprStack[exprStack.size() - 1];
                     exprStack.pop_back();
@@ -661,15 +925,16 @@ inline ASTNode* Parser::ShuntingYard()
                     BinOp* node = new BinOp();
                     node->oper = top_op.first;
 
-                    if (!GetPrecedence(top_op.first.type, top_op.second).right)
-                    {
-                        node->l = e1;
-                        node->r = e2;
-                    }
-                    else
+                    // TODO: check for other right-associative operators
+                    if (node->oper.type != TokenType::Assign)
                     {
                         node->r = e1;
                         node->l = e2;
+                    }
+                    else
+                    {
+                        node->l = e1;
+                        node->r = e2;
                     }
 
                     exprStack.push_back(node);
@@ -695,18 +960,18 @@ inline ASTNode* Parser::ShuntingYard()
             if (operatorStack.size())
             {
                 OperPrec topPrec = GetPrecedence(operatorStack[operatorStack.size() - 1].first.type,
-                    operatorStack[operatorStack.size() - 1].second);
+                    operatorStack[operatorStack.size() - 1].second == 1);
 
-                OperPrec curPrec = GetPrecedence(cur_tok.type, !lastNumVar);
+                OperPrec curPrec = GetPrecedence(cur_tok.type, lastNumVar ? false : true);
 
                 while (topPrec >= curPrec)
                 {
-                    std::pair<Token, bool> top_op = operatorStack[operatorStack.size() - 1];
+                    std::pair<Token, int> top_op = operatorStack[operatorStack.size() - 1];
 
                     ASTNode* e2 = exprStack[exprStack.size() - 1];
                     exprStack.pop_back();
 
-                    if (!top_op.second) // operator is binary
+                    if (top_op.second == 2) // operator is binary
                     {
                         ASTNode* e1 = exprStack[exprStack.size() - 1];
                         exprStack.pop_back();
@@ -714,15 +979,16 @@ inline ASTNode* Parser::ShuntingYard()
                         BinOp* node = new BinOp();
                         node->oper = top_op.first;
 
-                        if (!topPrec.right)
-                        {
-                            node->l = e1;
-                            node->r = e2;
-                        }
-                        else
+                        // TODO: check for other right-associative operators
+                        if (node->oper.type != TokenType::Assign)
                         {
                             node->r = e1;
                             node->l = e2;
+                        }
+                        else
+                        {
+                            node->l = e1;
+                            node->r = e2;
                         }
 
                         exprStack.push_back(node);
@@ -736,11 +1002,15 @@ inline ASTNode* Parser::ShuntingYard()
                         exprStack.push_back(node);
                     }
                     operatorStack.pop_back();
-                    topPrec = GetPrecedence(operatorStack[operatorStack.size() - 1].first.type,
-                        operatorStack[operatorStack.size() - 1].second);
+                    if (operatorStack.size())
+                    {
+                        topPrec = GetPrecedence(operatorStack[operatorStack.size() - 1].first.type,
+                            operatorStack[operatorStack.size() - 1].second == 1);
+                    }
+                    else break;
                 }
             }
-            operatorStack.push_back(std::make_pair(cur_tok, !lastNumVar));
+            operatorStack.push_back(std::make_pair(cur_tok, lastNumVar ? 2 : 1));
 
             lastNumVar = false;
         }
@@ -752,13 +1022,13 @@ inline ASTNode* Parser::ShuntingYard()
         return exprStack[exprStack.size() - 1];
     }
 
-    std::pair<Token, bool> top_op = operatorStack[operatorStack.size() - 1];
+    std::pair<Token, int> top_op = operatorStack[operatorStack.size() - 1];
     while (true)
     {
         ASTNode* e2 = exprStack[exprStack.size() - 1];
         exprStack.pop_back();
 
-        if (!top_op.second) // operator is binary
+        if (top_op.second == 2) // operator is binary
         {
             ASTNode* e1 = exprStack[exprStack.size() - 1];
             exprStack.pop_back();
@@ -766,15 +1036,23 @@ inline ASTNode* Parser::ShuntingYard()
             BinOp* node = new BinOp();
             node->oper = top_op.first;
 
-            if (!GetPrecedence(top_op.first.type, top_op.second).right)
-            {
-                node->l = e1;
-                node->r = e2;
-            }
-            else
+            // TODO: check for other right-associative operators
+            if (node->oper.type != TokenType::Assign)
             {
                 node->r = e1;
                 node->l = e2;
+            }
+            else
+            {
+                if (((VarLeaf*)e1)->data->mut)
+                {
+                    node->l = e1;
+                    node->r = e2;
+                }
+                else
+                {
+                    m_tok->UnexpToken(L"Cannot assign to immutable variable.");
+                }
             }
 
             exprStack.push_back(node);
@@ -794,8 +1072,6 @@ inline ASTNode* Parser::ShuntingYard()
         }
         top_op = operatorStack[operatorStack.size() - 1];
     }
-
-
 
     return exprStack[exprStack.size() - 1];
 }

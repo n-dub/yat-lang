@@ -44,9 +44,6 @@
     <ClCompile Include="CodeGen.cpp">
       <Filter>CodeGenerator</Filter>
     </ClCompile>
-    <ClCompile Include="CodeTemplates.cpp">
-      <Filter>CodeGenerator</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="grammar.bnf" />
@@ -74,9 +71,6 @@
       <Filter>Parser</Filter>
     </ClInclude>
     <ClInclude Include="CodeGen.h">
-      <Filter>CodeGenerator</Filter>
-    </ClInclude>
-    <ClInclude Include="CodeTemplates.h">
       <Filter>CodeGenerator</Filter>
     </ClInclude>
   </ItemGroup>
