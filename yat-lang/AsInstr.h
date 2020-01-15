@@ -80,7 +80,7 @@ struct AsInstr
     bool isLabel = false;
 
     AsInstr() = default;
-    AsInstr(const String& inl);
+    AsInstr(const String& inl, bool lab = false);
 
     String GenText();
     void SetSizeSuffix(size_t bytes);

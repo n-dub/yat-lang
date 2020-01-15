@@ -90,13 +90,13 @@ void Parser::Parse(AST& ast)
             }
             else
             {
-                m_tok->UnexpToken(L"Program in Oak consists of namespaces, so only either "
+                m_tok->UnexpToken(L"Program in Yat consists of namespaces, so only either "
                     L"'nspace' or 'using' keywords are allowed outside of namespace.");
             }
         }
         else
         {
-            m_tok->UnexpToken(L"Program in Oak consists of namespaces, so only either "
+            m_tok->UnexpToken(L"Program in Yat consists of namespaces, so only either "
                 L"'nspace' or 'using' keywords are allowed outside of namespace.");
         }
         if (m_nspace->block)
@@ -345,26 +345,8 @@ std::vector<ASTNode*> Parser::ParseStatement()
             }
             return { vd };
         }
-        throw; // possibly dead code now:
 
-        BinOp* op = new BinOp();
-        op->oper = cur_tok;
-
-        if (op->oper.type != TokenType::Assign)
-        {
-            m_tok->UnexpToken(L"Only assignment (=) is allowed for initialization.");
-        }
-        op->l = new VarLeaf(vd);
-        Keyword right_type;
-        cur_tok = m_tok->Next();
-        op->r = ParseExpression(vd->var_type == Keyword::kw_fn, right_type);
-
-        if (vd->var_type == Keyword::kw_let)
-        {
-            vd->var_type = right_type;
-        }
-
-        return { vd, op };
+        throw Error(L"Compiler Error\n");
     }
     case TokenType::Name:
     case TokenType::OperInc:
@@ -503,7 +485,7 @@ inline std::vector<Var*> Parser::ParseParamList()
     // only one parameter is allowed without parentheses
     if (cur_tok.type != TokenType::LParen)
     {
-        return { ParseVarDecl() };
+        return { ParseVarDecl(false) };
     }
 
     cur_tok = m_tok->Next();
@@ -517,16 +499,17 @@ inline std::vector<Var*> Parser::ParseParamList()
 
     while (true)
     {
-        r.push_back(ParseVarDecl());
+        r.push_back(ParseVarDecl(false));
         if (cur_tok.type == TokenType::RParen) break;
-        MATCH(Comma, L"Expected a comma ',' after parameter in lambda");
+        MATCH_CUR(Comma, L"Expected a comma ',' after parameter in lambda");
+        cur_tok = m_tok->Next();
     }
 
     cur_tok = m_tok->Next();
     return r;
 }
 
-Var* Parser::ParseVarDecl()
+Var* Parser::ParseVarDecl(bool add)
 {
     Keyword var_type = Keyword::Last;
     String name;
@@ -671,12 +654,12 @@ Var* Parser::ParseVarDecl()
         else
         {
             r->initial = ParseExpression(false, kw);
-            AddVariable(r);
+            if (add) AddVariable(r);
         }
     }
     else
     {
-        AddVariable(r);
+        if (add) AddVariable(r);
     }
 
     while (cur_tok.type != TokenType::Semi

@@ -79,10 +79,11 @@ AsInstr::Instr TTypeToInstr(TokenType type)
     }
 }
 
-AsInstr::AsInstr(const String& inl)
+AsInstr::AsInstr(const String& inl, bool lab)
 {
     l1 = inl;
     instr = Instr::Last;
+    isLabel = lab;
 }
 
 String AsInstr::GenText()

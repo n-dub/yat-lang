@@ -207,10 +207,32 @@ void CodeGen::VisitBlock(StatementBlock* b, bool glob, std::vector<AsInstr>& res
     }
 }
 
-inline void CodeGen::SolveCondition(const VisitRes& cond, std::vector<AsInstr>& res, const AsInstr& jump)
+inline void CodeGen::SolveCondition(ASTNode* cond, std::vector<AsInstr>& res, const AsInstr& jumpt, const AsInstr& jumpf)
 {
+    BinOp* op = (BinOp*)cond;
+
+    if (op->oper.type == TokenType::OperLAnd)
+    {
+        AsInstr next_l(GenLabel(), true);
+        SolveCondition(op->r, res, next_l, jumpf);
+        res.push_back(next_l);
+        SolveCondition(op->l, res, jumpt, jumpf);
+        return;
+    }
+
+    if (op->oper.type == TokenType::OperLOr)
+    {
+        AsInstr next_l(GenLabel(), true);
+        SolveCondition(op->r, res, jumpt, next_l);
+        res.push_back(next_l);
+        SolveCondition(op->l, res, jumpt, jumpf);
+        return;
+    }
+
+    auto vres = VisitNode(op, false, res);
+
     AsInstr::InstrSuffix jcond{};
-    switch (cond.bData)
+    switch (vres.bData)
     {
     case TokenType::OperLess:
         jcond = AsInstr::InstrSuffix::c_l;
@@ -240,11 +262,15 @@ inline void CodeGen::SolveCondition(const VisitRes& cond, std::vector<AsInstr>& 
     cj.suf = jcond;
     cj.instr = AsInstr::Instr::as_j;
     cj.oper1 = AsInstr::Operands::Label;
-    cj.l1 = jump.l1;
+    cj.l1 = jumpf.l1;
 
-    res.push_back(AsInstr(L"#condition start\n"));
+    AsInstr jmp;
+    jmp.instr = AsInstr::Instr::as_jmp;
+    jmp.oper1 = AsInstr::Operands::Label;
+    jmp.l1 = jumpt.l1;
+
     res.push_back(cj);
-    res.push_back(AsInstr(L"#condition end\n"));
+    res.push_back(jmp);
 }
 
 CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsInstr>& res)
@@ -339,14 +365,19 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
     case NodeType::WhileLoop:
     {
         WhileLoop* lp = (WhileLoop*)node;
-        AsInstr start_l(GenLabel()), end_l(GenLabel());
+        AsInstr start_l(GenLabel(), true), end_l(GenLabel(), true), endc_l(GenLabel(), true);
         start_l.isLabel = end_l.isLabel = true;
 
-        res.push_back(AsInstr(L"#while start\n"));
+        res.push_back(AsInstr(L"#while start\n", false));
         res.push_back(start_l);
 
-        VisitRes cond = VisitNode(lp->condition, glob, res);
-        SolveCondition(cond, res, end_l);
+        // m_cond = true;
+        // jcondf = end_l;
+        // jcondt = endc_l;
+        SolveCondition(lp->condition, res, endc_l, end_l);
+        // m_cond = false;
+
+        res.push_back(endc_l);
 
         VisitBlock(lp->body, glob, res);
         AsInstr jmp_start;
@@ -356,7 +387,7 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
         jmp_start.oper1 = AsInstr::Operands::Label;
         res.push_back(jmp_start);
 
-        res.push_back(AsInstr(L"#while end\n"));
+        res.push_back(AsInstr(L"#while end\n", false));
         res.push_back(end_l);
 
         break;
@@ -364,11 +395,17 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
     case NodeType::IfSt:
     {
         IfStatement* is = (IfStatement*)node;
-        VisitRes cond = VisitNode(is->condition, glob, res);
-        AsInstr end_then(GenLabel());
+
+        AsInstr end_then(GenLabel(), true), s_then(GenLabel(), true);
         end_then.isLabel = true;
 
-        SolveCondition(cond, res, end_then);
+        // m_cond = true;
+        // jcondf = end_then;
+        // jcondt = s_then;
+        SolveCondition(is->condition, res, s_then, end_then);
+        // m_cond = false;
+
+        res.push_back(s_then);
 
         VisitBlock(is->then_b, false, res);
 
@@ -389,7 +426,7 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
 
             VisitBlock(is->else_b, false, res);
 
-            res.push_back(end_else);
+            res.push_back(AsInstr(end_else, true));
             res.push_back(AsInstr(L"#if-else end\n"));
             res[res.size() - 1].isLabel = true;
         }
@@ -407,8 +444,10 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
 
         int64_t param_bytes = 0;
 
-        for (ASTNode* param : v->params) // TODO: convert types if they do not match
+        // push all parameters in reversed order
+        for (auto iter = v->params.crbegin(); iter != v->params.crend(); ++iter)
         {
+            ASTNode* param = *iter;
             VisitRes vr = VisitNode(param, false, res);
 
             param_bytes += GetTypeSize(param->GetTypeKW());
@@ -727,7 +766,13 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
     case NodeType::BinOper:
     {
         BinOp* op = (BinOp*)node;
-        
+        /*
+        if (op->oper.type == TokenType::OperLAnd || op->oper.type == TokenType::OperLOr)
+        {
+            SolveCondition(op, res, jcondt, jcondf);
+            return VisitRes();
+        }
+        */
         VisitRes left_vis = VisitNode(op->l, glob, res);
         VisitRes right_vis = VisitNode(op->r, glob, res);
 
@@ -851,7 +896,6 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
         inst.reg2 = temp;
 
         // negate the condition to jump to the end of if-statement when it is false
-        // TODO: support for complex boolean expressions like 'x > 10 && x < 100'
         TokenType bool_t = NegateLOp(op->oper.type);
         if (bool_t != TokenType::EoF)
         {
@@ -865,8 +909,8 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
 
         if (op->oper.type == TokenType::Assign)
         {
-            // this code gives incorrect assembly for assignmet operator, e.g.
-            // assemebly for 'program.var = 2':
+            // this code gives incorrect assembly for assignemet operator, e.g.
+            // assembly for 'program.var = 2':
             //     movq $2, %rbx
             //     movq program.var, % rbx
             // to fix this we have to swap operands of the second instruction

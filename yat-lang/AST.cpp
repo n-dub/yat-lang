@@ -372,6 +372,8 @@ ASTNode* Var::TryEval()
 
 void Var::AddTypeCvt()
 {
+    if (!initial) return;
+
     initial->AddTypeCvt();
 
     if (GetTypeSize(initial->GetTypeKW()) != GetTypeSize(var_type))
@@ -536,7 +538,10 @@ void IfStatement::AddTypeCvt()
 {
     condition->AddTypeCvt();
     then_b->AddTypeCvt();
-    else_b->AddTypeCvt();
+    if (else_b)
+    {
+        else_b->AddTypeCvt();
+    }
 }
 
 WhileLoop::WhileLoop()

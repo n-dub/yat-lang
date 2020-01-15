@@ -73,7 +73,7 @@ public:
     inline std::vector<ASTNode*> ParseStatement();
     inline std::vector<Var*> ParseParamList();
     inline ASTNode* ShuntingYard();
-    inline Var* ParseVarDecl();
+    inline Var* ParseVarDecl(bool add = true);
     inline String ParseUsing();
     inline void ParsePreProc();
     inline Range* ParseRange();

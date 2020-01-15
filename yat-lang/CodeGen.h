@@ -122,7 +122,7 @@ class CodeGen
     inline String GenLabel();
     inline LocalVar GetLocal(Var* v);
 
-    inline void SolveCondition(const VisitRes& cond, std::vector<AsInstr>& res, const AsInstr& jump);
+    inline void SolveCondition(ASTNode* cond, std::vector<AsInstr>& res, const AsInstr& jumpt, const AsInstr& jumpf);
 
     void VisitNSpace(Namespace* ns);
     void VisitBlock(StatementBlock* b, bool glob, std::vector<AsInstr>& res);

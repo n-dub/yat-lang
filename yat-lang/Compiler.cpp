@@ -39,7 +39,7 @@ bool Compiler::Run()
         String lib_path = GetEnvVar("YatLibDir");
         if (lib_path == L"")
         {
-            std::wcout << L"WARNING: Cannot find Oak standard library.\n"
+            std::wcout << L"WARNING: Cannot find Yat standard library.\n"
                 << L"Its path doesn't exist in system environment variables.\n";
         }
         else if (lib_path[lib_path.length() - 1] != L'\\')
