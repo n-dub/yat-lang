@@ -221,6 +221,8 @@ enum class Keyword
     kw_new,
     kw_asm,
     kw_rng,
+    kw_in,
+    kw_as,
     Last
 };
 

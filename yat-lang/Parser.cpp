@@ -290,12 +290,7 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
         case TokenType::OperInc:
         case TokenType::OperDec:
         {
-            // return vector because a statement can consist of multiple nodes
-            auto st = ParseStatement();
-            for (ASTNode* s : st)
-            {
-                r->children.push_back(s);
-            }
+            r->children.push_back(ParseStatement());
 
             break;
         }
@@ -309,7 +304,11 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
         }
         }
 
-        cur_tok = m_tok->Next();
+        if (cur_tok.type != TokenType::RBrace)
+        {
+            cur_tok = m_tok->Next();
+        }
+
         if (cur_tok.type == TokenType::Semi)
         {
             cur_tok = m_tok->Next();
@@ -328,7 +327,7 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
     return r;
 }
 
-std::vector<ASTNode*> Parser::ParseStatement()
+ASTNode* Parser::ParseStatement()
 {
     switch (cur_tok.type)
     {
@@ -343,7 +342,7 @@ std::vector<ASTNode*> Parser::ParseStatement()
             {
                 m_tok->UnexpToken(L"Variable declared with 'let' keyword must be initialized");
             }
-            return { vd };
+            return vd;
         }
 
         throw Error(L"Compiler Error\n");
@@ -354,11 +353,11 @@ std::vector<ASTNode*> Parser::ParseStatement()
     {
         Keyword q;
 
-        return { ParseExpression(false, q) };
+        return ParseExpression(false, q);
     }
     }
 
-    return { nullptr };
+    throw Error(L"Compiler Error\n");
 }
 
 ASTNode* Parser::ParseExpression(bool fn, Keyword& exp_type)
@@ -381,7 +380,7 @@ ASTNode* Parser::ParseExpression(bool fn, Keyword& exp_type)
         MATCH_CUR(Arrow, L"Expected function return type after arrow '->'.");
         cur_tok = m_tok->Next();
 
-        exp_type = cur_tok.kw_type;
+        r->ret_type = exp_type = cur_tok.kw_type;
 
         cur_tok = m_tok->Next();
         return r;
@@ -639,11 +638,18 @@ Var* Parser::ParseVarDecl(bool add)
             else
             {
                 // only single statements are allowed in lambdas without braces {}
-                auto st = ParseStatement();
                 sb = new StatementBlock();
-                for (ASTNode* s : st)
+                sb->children.push_back(ParseStatement());
+                // if the function must return a value this statement
+                // defines the value to return
+
+                if (init->GetTypeKW() != Keyword::kw_null)
                 {
-                    sb->children.push_back(s);
+                    UnOp* ret = new UnOp();
+                    ret->oper = Token(L"ret", TokenType::Keyword, Keyword::kw_ret);
+                    ret->operand = sb->children[sb->children.size() - 1];
+
+                    sb->children[sb->children.size() - 1] = ret;
                 }
             }
             m_vars.pop_back();
@@ -770,7 +776,8 @@ inline ASTNode* Parser::ShuntingYard()
 
     bool lastNumVar = false; // last token was a number or a variable
     while (cur_tok.type != TokenType::Semi
-        && cur_tok.type != TokenType::LBrace)
+        && cur_tok.type != TokenType::LBrace
+        && cur_tok.type != TokenType::RBrace)
     {
         if (cur_tok.type == TokenType::LParen ||
             cur_tok.type == TokenType::LBracket)

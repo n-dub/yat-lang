@@ -16,25 +16,6 @@
 //
 #include "Tokens.h"
 
-const wchar_t* MnemonicStr[]{
-    L"mov",
-    L"add",
-    L"sub",
-    L"imul",
-    L"mul",
-    L"idiv",
-    L"div",
-    L"shl",
-    L"shr",
-    L"and",
-    L"or",
-    L"not",
-    L"xor",
-    L"inc",
-    L"dec",
-    L"lea"
-};
-
 const wchar_t* KeywordStr[]{
     L"using",
     L"nspace",
@@ -73,6 +54,8 @@ const wchar_t* KeywordStr[]{
     L"base",
     L"new",
     L"_asm",
+    L"in",
+    L"as",
     L"rng"
 };
 

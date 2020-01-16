@@ -70,7 +70,7 @@ public:
     inline ASTNode* ParseExpression(bool fn, Keyword& exp_type);
     inline IfStatement* ParseIf();
     inline StatementBlock* ParseBlock(bool is_fn);
-    inline std::vector<ASTNode*> ParseStatement();
+    inline ASTNode* ParseStatement();
     inline std::vector<Var*> ParseParamList();
     inline ASTNode* ShuntingYard();
     inline Var* ParseVarDecl(bool add = true);
