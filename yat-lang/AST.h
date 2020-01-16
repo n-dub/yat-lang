@@ -17,6 +17,7 @@
 #pragma once
 #include "Tokens.h"
 #include <vector>
+#include <functional>
 
 enum class NodeType
 {
@@ -101,14 +102,25 @@ public:
 class ConstLeaf : public ASTNode
 {
 public:
+    union GetNumRes
+    {
+        int8_t   ib;
+        uint8_t  ub;
+        int16_t  iw;
+        uint16_t uw;
+        int32_t  id;
+        uint32_t ud;
+        int64_t  iq;
+        uint64_t uq = 0;
+    };
+
     Token data;
     ConstLeaf(const Token& data);
     virtual void DebugPrint(size_t d) override;
     virtual Keyword GetTypeKW() override;
     virtual ASTNode* TryEval() override;
     virtual bool isConstEval();
-    int64_t GetNumberS();
-    uint64_t GetNumberU();
+    GetNumRes GetNumber();
     virtual void AddTypeCvt();
 };
 

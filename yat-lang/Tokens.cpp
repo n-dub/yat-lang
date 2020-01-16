@@ -245,24 +245,20 @@ size_t GetTypeSize(Keyword kw)
     case Keyword::kw_u8:
     case Keyword::kw_bool:
         return 1;
-        break;
     case Keyword::kw_i16:
     case Keyword::kw_u16:
     case Keyword::kw_ch16:
         return 2;
-        break;
     case Keyword::kw_i32:
     case Keyword::kw_u32:
     case Keyword::kw_f32:
         return 4;
-        break;
     case Keyword::kw_i64:
     case Keyword::kw_u64:
     case Keyword::kw_f64:
     case Keyword::kw_str16:
     case Keyword::kw_fn:
         return 8;
-        break;
     }
     return 0;
 }
@@ -288,5 +284,21 @@ TokenType NegateLOp(TokenType op)
     }
 
     return TokenType::EoF;
+}
+
+bool IsSigned(Keyword type)
+{
+    switch (type)
+    {
+    case Keyword::kw_i8:
+    case Keyword::kw_i16:
+    case Keyword::kw_i32:
+    case Keyword::kw_f32:
+    case Keyword::kw_i64:
+    case Keyword::kw_f64:
+        return true;
+    }
+
+    return false;
 }
 

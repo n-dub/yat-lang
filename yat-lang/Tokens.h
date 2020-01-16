@@ -293,12 +293,13 @@ struct OperPrec
     int prec = 0;
 };
 
-OperPrec GetPrecedence(TokenType oper, bool unary);
-bool IsNumber(TokenType type);
-bool IsNumber(Keyword kw);
-bool IsBinaryOp(TokenType type);
-Keyword TTypeToKeyword(TokenType t);
-size_t GetTypeSize(Keyword kw);
+inline OperPrec GetPrecedence(TokenType oper, bool unary);
+inline bool IsNumber(TokenType type);
+inline bool IsNumber(Keyword kw);
+inline bool IsBinaryOp(TokenType type);
+inline Keyword TTypeToKeyword(TokenType t);
+inline size_t GetTypeSize(Keyword kw);
 // returns EoF if invalid token type has been passed
-TokenType NegateLOp(TokenType op);
+inline TokenType NegateLOp(TokenType op);
+inline bool IsSigned(Keyword type);
 

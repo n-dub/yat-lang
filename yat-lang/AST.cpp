@@ -70,27 +70,56 @@ Keyword BinOp::GetTypeKW()
 
 ASTNode* BinOp::TryEval()
 {
-    ConstLeaf *le, *re;
-    l = le = (ConstLeaf*)l->TryEval();
-    if (!l) return nullptr;
-    r = re = (ConstLeaf*)r->TryEval();
-    if (!r) return nullptr;
+    l = l->TryEval();
+    r = r->TryEval();
 
-    int64_t res = 0;
+    if (l->type != NodeType::ConstLeaf || r->type != NodeType::ConstLeaf)
+    {
+        return this;
+    }
+
+    auto ln = ((ConstLeaf*)l)->GetNumber();
+    auto rn = ((ConstLeaf*)r)->GetNumber();
+    auto t = GetTypeKW();
+
+#define OPER_CASE(_op)\
+    switch (t)\
+    {\
+    case Keyword::kw_i8:  return new ConstLeaf(Token(std::to_wstring(ln.ib _op rn.ib), TokenType::Int8L));\
+    case Keyword::kw_u8:  return new ConstLeaf(Token(std::to_wstring(ln.ub _op rn.ub), TokenType::Uint8L));\
+    case Keyword::kw_i16: return new ConstLeaf(Token(std::to_wstring(ln.iw _op rn.iw), TokenType::Int16L));\
+    case Keyword::kw_u16: return new ConstLeaf(Token(std::to_wstring(ln.uw _op rn.uw), TokenType::Uint16L));\
+    case Keyword::kw_i32: return new ConstLeaf(Token(std::to_wstring(ln.id _op rn.id), TokenType::Int32L));\
+    case Keyword::kw_u32: return new ConstLeaf(Token(std::to_wstring(ln.ud _op rn.ud), TokenType::Uint32L));\
+    case Keyword::kw_i64: return new ConstLeaf(Token(std::to_wstring(ln.iq _op rn.iq), TokenType::Int64L));\
+    case Keyword::kw_u64: return new ConstLeaf(Token(std::to_wstring(ln.uq _op rn.uq), TokenType::Uint64L));\
+    }
+
     switch (oper.type)
     {
-        // TODO: constant evaluation
-        case TokenType::OperPlus:
-        case TokenType::OperMin:
-        case TokenType::OperMul:
+        case TokenType::OperPlus:  OPER_CASE(+);
+        case TokenType::OperMin:   OPER_CASE(-);
+        case TokenType::OperMul:   OPER_CASE(*);
         case TokenType::OperPow:
-        case TokenType::OperDiv:
-        case TokenType::OperPCent:
+        {
+            switch (t)
+            {
+            case Keyword::kw_i8:  return new ConstLeaf(Token(std::to_wstring(std::pow(ln.ib, rn.ib)), TokenType::Int8L));
+            case Keyword::kw_u8:  return new ConstLeaf(Token(std::to_wstring(std::pow(ln.ub, rn.ub)), TokenType::Uint8L));
+            case Keyword::kw_i16: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.iw, rn.iw)), TokenType::Int16L));
+            case Keyword::kw_u16: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.uw, rn.uw)), TokenType::Uint16L));
+            case Keyword::kw_i32: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.id, rn.id)), TokenType::Int32L));
+            case Keyword::kw_u32: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.ud, rn.ud)), TokenType::Uint32L));
+            case Keyword::kw_i64: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.iq, rn.iq)), TokenType::Int64L));
+            case Keyword::kw_u64: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.uq, rn.uq)), TokenType::Uint64L));
+            }
+        }
+        case TokenType::OperDiv:   OPER_CASE(/);
+        case TokenType::OperPCent: OPER_CASE(*);
             break;
     }
 
-    // return new ConstLeaf(Token(std::to_wstring(res), type));
-    return nullptr;
+    return this;
 }
 
 bool BinOp::isConstEval()
@@ -134,7 +163,7 @@ Keyword VarLeaf::GetTypeKW()
 
 ASTNode* VarLeaf::TryEval()
 {
-    return nullptr;
+    return this;
 }
 
 bool VarLeaf::isConstEval()
@@ -165,7 +194,7 @@ Keyword ConstLeaf::GetTypeKW()
 
 ASTNode* ConstLeaf::TryEval()
 {
-    return nullptr;
+    return this;
 }
 
 bool ConstLeaf::isConstEval()
@@ -173,14 +202,23 @@ bool ConstLeaf::isConstEval()
     return true;
 }
 
-int64_t ConstLeaf::GetNumberS()
+ConstLeaf::GetNumRes ConstLeaf::GetNumber()
 {
-    return StringToInt<int64_t>(data.data);
-}
+    GetNumRes res{};
 
-uint64_t ConstLeaf::GetNumberU()
-{
-    return StringToInt<uint64_t>(data.data);
+    switch (GetTypeKW())
+    {
+    case Keyword::kw_i8: res.ib = StringToInt<int8_t>(data.data);
+    case Keyword::kw_u8: res.ub = StringToInt<uint8_t>(data.data);
+    case Keyword::kw_i16: res.iw = StringToInt<int16_t>(data.data);
+    case Keyword::kw_u16: res.uw = StringToInt<uint16_t>(data.data);
+    case Keyword::kw_i32: res.id = StringToInt<int32_t>(data.data);
+    case Keyword::kw_u32: res.ud = StringToInt<uint32_t>(data.data);
+    case Keyword::kw_i64: res.iq = StringToInt<int64_t>(data.data);
+    case Keyword::kw_u64: res.uq = StringToInt<uint64_t>(data.data);
+    }
+
+    return res;
 }
 
 void ConstLeaf::AddTypeCvt()
@@ -209,7 +247,7 @@ Keyword StatementBlock::GetTypeKW()
 
 ASTNode* StatementBlock::TryEval()
 {
-    return nullptr;
+    return this;
 }
 
 void StatementBlock::AddTypeCvt()
@@ -239,7 +277,29 @@ Keyword UnOp::GetTypeKW()
 
 ASTNode* UnOp::TryEval()
 {
-    return nullptr;
+    operand = operand->TryEval();
+    if (oper.type == TokenType::OperMin)
+    {
+        if (operand->type == NodeType::ConstLeaf)
+        {
+            ConstLeaf* v = (ConstLeaf*)operand;
+            if (!IsSigned(v->GetTypeKW()))
+            {
+                throw Error(L"Unary operator '-' applied to unsigned type\n");
+            }
+
+            if (v->data.data[0] == L'-')
+            {
+                v->data.data = v->data.data.substr(1);
+            }
+            else
+            {
+                v->data.data = L'-' + v->data.data;
+            }
+            return v;
+        }
+    }
+    return this;
 }
 
 bool UnOp::isConstEval()
@@ -280,7 +340,7 @@ Keyword Lambda::GetTypeKW()
 
 ASTNode* Lambda::TryEval()
 {
-    return nullptr;
+    return this;
 }
 
 void Lambda::AddTypeCvt()
@@ -310,7 +370,7 @@ Keyword FnCall::GetTypeKW()
 
 ASTNode* FnCall::TryEval()
 {
-    return nullptr;
+    return this;
 }
 
 void FnCall::AddTypeCvt()
@@ -367,7 +427,7 @@ Keyword Var::GetTypeKW()
 
 ASTNode* Var::TryEval()
 {
-    return nullptr;
+    return this;
 }
 
 void Var::AddTypeCvt()
@@ -439,12 +499,12 @@ Keyword Range::GetTypeKW()
 
 ASTNode* Range::TryEval()
 {
-    return nullptr;
+    return this;
 }
 
 size_t Range::GetSize()
 {
-    int64_t res = r->GetNumberS() - l->GetNumberS();
+    int64_t res = r->GetNumber().iq - l->GetNumber().iq;
 
     if (flags & LeftInclusive)
     {
@@ -486,7 +546,7 @@ Keyword StrLeaf::GetTypeKW()
 
 ASTNode* StrLeaf::TryEval()
 {
-    return nullptr;
+    return this;
 }
 
 bool StrLeaf::isConstEval()
@@ -526,7 +586,7 @@ Keyword IfStatement::GetTypeKW()
 
 ASTNode* IfStatement::TryEval()
 {
-    return nullptr;
+    return this;
 }
 
 bool IfStatement::isConstEval()
@@ -566,7 +626,7 @@ Keyword WhileLoop::GetTypeKW()
 
 ASTNode* WhileLoop::TryEval()
 {
-    return nullptr;
+    return this;
 }
 
 bool WhileLoop::isConstEval()
@@ -612,7 +672,8 @@ void Convert::DebugPrint(size_t d)
 
 ASTNode* Convert::TryEval()
 {
-    return nullptr;
+    value = value->TryEval();
+    return this;
 }
 
 Keyword Convert::GetTypeKW()

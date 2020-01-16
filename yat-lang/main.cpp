@@ -27,6 +27,7 @@ Options:
     -h                                  show this help message
     -o <path>                           output file (without extension)
     -S                                  compile file, but do not assemble and link
+    -O[0-3]                             level of optimization
 )";
 
 int main(int argc, char** argv)
@@ -34,6 +35,7 @@ int main(int argc, char** argv)
     setlocale(LC_ALL, "");
     std::wstring output, input;
     bool assembly = false;
+    int opt_level = 0;
 
     if (argc <= 1)
     {
@@ -68,6 +70,38 @@ int main(int argc, char** argv)
             if (args[i] == "-S")
             {
                 assembly = true;
+                continue;
+            }
+
+            if (args[i] == "-O0")
+            {
+                opt_level = 0;
+                continue;
+            }
+
+            if (args[i] == "-O1")
+            {
+                opt_level = 1;
+                continue;
+            }
+
+            if (args[i] == "-O2")
+            {
+                opt_level = 2;
+                continue;
+            }
+
+            if (args[i] == "-O3")
+            {
+                opt_level = 3;
+                continue;
+            }
+
+            if (args[i][0] == '-')
+            {
+                std::wcout << L"WARNING: unrecognized compiler option `";
+                std::cout << args[i];
+                std::wcout << L"' ignored\n";
                 continue;
             }
 
