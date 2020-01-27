@@ -26,14 +26,14 @@ Usage:
 Options:
     -h                                  show this help message
     -o <path>                           output file (without extension)
-    -S                                  compile file, but do not assemble and link
+    -S                                  compile program, but do not assemble and link
     -O[0-3]                             level of optimization
 )";
 
 int main(int argc, char** argv)
 {
     setlocale(LC_ALL, "");
-    std::wstring output, input;
+    std::wstring output = L"a", input;
     bool assembly = false;
     int opt_level = 0;
 
@@ -101,7 +101,7 @@ int main(int argc, char** argv)
             {
                 std::wcout << L"WARNING: unrecognized compiler option `";
                 std::cout << args[i];
-                std::wcout << L"' ignored\n";
+                std::wcout << L"' ignored. Use `-h' for list of all supported options.\n";
                 continue;
             }
 
@@ -109,7 +109,7 @@ int main(int argc, char** argv)
         }
     }
 
-    Compiler comp(input, output, assembly);
+    Compiler comp(input, output, assembly, opt_level);
     if (comp.Run())
     {
         return 0;

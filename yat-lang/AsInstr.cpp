@@ -56,7 +56,7 @@ const String AsInstr::InstrStr[]{
     L""
 };
 
-AsInstr::Instr TTypeToInstr(TokenType type)
+AsInstr::Instr TTypeToInstr(TokenType type, bool sign)
 {
     switch (type)
     {
@@ -67,13 +67,13 @@ AsInstr::Instr TTypeToInstr(TokenType type)
     case TokenType::OperMin:
         return AsInstr::Instr::as_sub;
     case TokenType::OperMul:
-        return AsInstr::Instr::as_imul;
+        return sign ? AsInstr::Instr::as_imul : AsInstr::Instr::as_mul;
     case TokenType::OperPow:
         throw; // TODO
     case TokenType::OperDiv:
-        return AsInstr::Instr::as_idiv;
+        return sign ? AsInstr::Instr::as_idiv : AsInstr::Instr::as_div;
     case TokenType::OperPCent:
-        throw; // TODO
+        return sign ? AsInstr::Instr::as_idiv : AsInstr::Instr::as_div;
     case TokenType::OperInc:
         return AsInstr::Instr::as_inc;
     case TokenType::OperDec:

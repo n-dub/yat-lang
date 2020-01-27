@@ -42,8 +42,12 @@ class Parser
         }
     } m_pp;
 
-    // the current token
+    // current token
     Token cur_tok;
+    // previous token
+    Token prev_tok;
+
+    // tokenizer
     Tokenizer* m_tok = nullptr;
     // the current namespace
     Namespace* m_nspace = nullptr;
@@ -57,6 +61,22 @@ class Parser
         Assign,
         // function call
         FuncCall
+    };
+
+    struct TemplateParam
+    {
+        Keyword kw = Keyword::Last;
+        String name{};
+
+        TemplateParam(Keyword k)
+        {
+            kw = k;
+        }
+
+        TemplateParam(const String& n)
+        {
+            name = n;
+        }
     };
 
 public:
@@ -74,6 +94,7 @@ public:
     inline std::vector<Var*> ParseParamList();
     inline ASTNode* ShuntingYard();
     inline Var* ParseVarDecl(bool add = true);
+    inline void ParseTypeParams(std::vector<TemplateParam>& p);
     inline String ParseUsing();
     inline void ParsePreProc();
     inline Range* ParseRange();

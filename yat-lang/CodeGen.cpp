@@ -34,19 +34,6 @@ inline Register CodeGen::TryAllocRegister(bool fp, size_t bytes)
             default: throw Error(L"Wrong type size");
             }
         }
-        if (RegisterState.RegD)
-        {
-            RegisterState.RegD = false;
-            switch (bytes)
-            {
-            case 1: return Register::dl;
-            case 2: return Register::dx;
-            case 4: return Register::edx;
-            case 8: return Register::rdx;
-
-            default: throw Error(L"Wrong type size");
-            }
-        }
 
         for (int i = 0; i < 8; ++i)
         {
@@ -59,7 +46,7 @@ inline Register CodeGen::TryAllocRegister(bool fp, size_t bytes)
                 case 1: return (Register)((int)Register::r8b + i);
                 case 2: return (Register)((int)Register::r8w + i);
                 case 4: return (Register)((int)Register::r8d + i);
-                case 8: return (Register)((int)Register::r8  + i);
+                case 8: return (Register)((int)Register::r8 + i);
 
                 default: throw Error(L"Wrong type size");
                 }
@@ -91,12 +78,12 @@ inline void CodeGen::FreeRegister(Register r)
     case Register::rbx:
         RegisterState.RegB = true;
         break;
-    case Register::dl:
-    case Register::dx:
-    case Register::edx:
-    case Register::rdx:
-        RegisterState.RegD = true;
-        break;
+    // case Register::dl:
+    // case Register::dx:
+    // case Register::edx:
+    // case Register::rdx:
+    //     RegisterState.RegD = true;
+    //     break;
     case Register::r8:
     case Register::r9:
     case Register::r10:
@@ -273,6 +260,81 @@ inline void CodeGen::SolveCondition(ASTNode* cond, std::vector<AsInstr>& res, co
     res.push_back(jmp);
 }
 
+inline AsInstr CodeGen::MakeMov(const VisitRes& from, const VisitRes& to, const size_t op_size)
+{
+    AsInstr mov_in;
+    mov_in.instr = AsInstr::Instr::as_mov;
+    mov_in.SetSizeSuffix(op_size);
+
+    switch (from.type)
+    {
+    case VisitRes::glob:
+    {
+        if (from.gData->var_type == Keyword::kw_str16)
+        {
+            // change instruction to 'lea' cause we want pointer to be copied
+            mov_in.instr = AsInstr::Instr::as_lea;
+        }
+        mov_in.oper1 = AsInstr::Operands::Label;
+        mov_in.l1 = from.gData->name;
+        break;
+    }
+    case VisitRes::loc:
+    {
+        mov_in.oper1 = AsInstr::Operands::Stack;
+        mov_in.mem1 = from.lData.offset;
+        break;
+    }
+    case VisitRes::reg:
+    {
+        FreeRegister(from.rData);
+        mov_in.oper1 = AsInstr::Operands::Reg;
+        mov_in.reg1 = from.rData;
+        break;
+    }
+    case VisitRes::func:
+    {
+        // change instruction to 'lea' cause we want pointer to be copied
+        mov_in.instr = AsInstr::Instr::as_lea;
+        mov_in.oper1 = AsInstr::Operands::Label;
+        mov_in.l1 = from.fData;
+        break;
+    }
+    case VisitRes::cnst:
+    {
+        mov_in.oper1 = AsInstr::Operands::Const;
+        mov_in.l1 = from.cData->data.data;
+        break;
+    }
+    }
+
+    switch (to.type)
+    {
+    case VisitRes::glob:
+    {
+        mov_in.oper2 = AsInstr::Operands::Label;
+        mov_in.l2 = to.gData->name;
+        break;
+    }
+    case VisitRes::loc:
+    {
+        mov_in.oper2 = AsInstr::Operands::Stack;
+        mov_in.mem2 = to.lData.offset;
+        break;
+    }
+    case VisitRes::reg:
+    {
+        mov_in.oper2 = AsInstr::Operands::Reg;
+        mov_in.reg2 = to.rData;
+        break;
+    }
+    default:
+        throw Error(L"Compiler Error: invalid destination in mov instruction");
+    }
+
+    return mov_in;
+}
+
 CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsInstr>& res)
 {
     switch (node->type)
@@ -283,48 +345,15 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
         VisitRes vr = VisitNode(cvt->value, glob, res);
         Register temp = TryAllocRegister(false, GetTypeSize(cvt->value->GetTypeKW()));
 
-        // TODO: support for stack, not only registers
-        AsInstr mov_in;
-        mov_in.instr = AsInstr::Instr::as_mov;
-        mov_in.SetSizeSuffix(GetTypeSize(cvt->value->GetTypeKW()));
-        switch (vr.type)
-        {
-        case VisitRes::glob:
-        {
-            mov_in.oper1 = AsInstr::Operands::Label;
-            mov_in.l1 = vr.gData->name;
-            break;
-        }
-        case VisitRes::loc:
-        {
-            mov_in.oper1 = AsInstr::Operands::Stack;
-            mov_in.mem1 = vr.lData.offset;
-            break;
-        }
-        case VisitRes::reg:
-        {
-            FreeRegister(vr.rData);
-            mov_in.oper1 = AsInstr::Operands::Reg;
-            mov_in.reg1 = vr.rData;
-            break;
-        }
-        case VisitRes::cnst:
-        {
-            mov_in.oper1 = AsInstr::Operands::Const;
-            mov_in.l1 = vr.cData->data.data;
-            break;
-        }
-        }
-
-        mov_in.oper2 = AsInstr::Operands::Reg;
-        mov_in.reg2 = temp;
+        AsInstr mov_in = MakeMov(vr, temp, GetTypeSize(cvt->value->GetTypeKW()));
 
         AsInstr inst;
         inst.instr = AsInstr::Instr::as_mov;
         inst.oper1 = AsInstr::Operands::Reg;
         inst.reg1 = temp;
 
-        if (GetTypeSize(cvt->value->GetTypeKW()) < GetTypeSize(cvt->GetTypeKW()))
+        if (GetTypeSize(cvt->value->GetTypeKW()) < GetTypeSize(cvt->GetTypeKW())
+            && IsSigned(cvt->GetTypeKW()))
         {
             switch (cvt->value->GetTypeKW())
             {
@@ -333,13 +362,13 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
             case Keyword::kw_i32:
             case Keyword::kw_i64:
                 inst.suf = AsInstr::InstrSuffix::x_s;
-                break;
+                break;/*
             case Keyword::kw_u8:
             case Keyword::kw_u16:
             case Keyword::kw_u32:
             case Keyword::kw_u64:
                 inst.suf = AsInstr::InstrSuffix::x_z;
-                break;
+                break;*/
             }
 
             inst.SetSizeSuffix(GetTypeSize(cvt->value->GetTypeKW()));
@@ -428,7 +457,6 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
 
             res.push_back(AsInstr(end_else, true));
             res.push_back(AsInstr(L"#if-else end\n"));
-            res[res.size() - 1].isLabel = true;
         }
         else
         {
@@ -578,7 +606,7 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
             BinOp* init_op = new BinOp();
             init_op->l = new VarLeaf(v);
             init_op->r = v->initial;
-            init_op->oper = Token(L"=", TokenType::Assign);
+            init_op->oper = Token(L"=", TokenType::Assign, 0, 0, 0);
 
             VisitRes ivr = VisitNode(init_op, glob, res);
             if (ivr.type == VisitRes::reg)
@@ -619,63 +647,25 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
             {
                 VisitRes oper_vis = VisitNode(op->operand, glob, res);
 
-                AsInstr mov_in;
-                mov_in.instr = AsInstr::Instr::as_mov;
-                mov_in.SetSizeSuffix(GetTypeSize(op->GetTypeKW()));
+                Register reg{};
 
                 switch (GetTypeSize(op->GetTypeKW()))
                 {
                 case 1:
-                    mov_in.reg2 = Register::ah;
+                    reg = Register::ah;
                     break;
                 case 2:
-                    mov_in.reg2 = Register::ax;
+                    reg = Register::ax;
                     break;
                 case 4:
-                    mov_in.reg2 = Register::eax;
+                    reg = Register::eax;
                     break;
                 case 8:
-                    mov_in.reg2 = Register::rax;
+                    reg = Register::rax;
                     break;
                 }
-                mov_in.oper2 = AsInstr::Operands::Reg;
+                AsInstr mov_in = MakeMov(oper_vis, reg, GetTypeSize(op->GetTypeKW()));
 
-                switch (oper_vis.type)
-                {
-                case VisitRes::glob:
-                {
-                    mov_in.oper1 = AsInstr::Operands::Label;
-                    mov_in.l1 = oper_vis.gData->name;
-                    break;
-                }
-                case VisitRes::loc:
-                {
-                    mov_in.oper1 = AsInstr::Operands::Stack;
-                    mov_in.mem1 = oper_vis.lData.offset;
-                    break;
-                }
-                case VisitRes::reg:
-                {
-                    FreeRegister(oper_vis.rData);
-                    mov_in.oper1 = AsInstr::Operands::Reg;
-                    mov_in.reg1 = oper_vis.rData;
-                    break;
-                }
-                case VisitRes::func:
-                {
-                    // change instruction to 'lea' cause we want pointer to be copied
-                    mov_in.instr = AsInstr::Instr::as_lea;
-                    mov_in.oper1 = AsInstr::Operands::Label;
-                    mov_in.l1 = oper_vis.fData;
-                    break;
-                }
-                case VisitRes::cnst:
-                {
-                    mov_in.oper1 = AsInstr::Operands::Const;
-                    mov_in.l1 = oper_vis.cData->data.data;
-                    break;
-                }
-                }
                 res.push_back(mov_in);
 
                 // stack frame leave:
@@ -692,73 +682,10 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
         case TokenType::OperInc: // increment
         case TokenType::OperDec: // decrement
         {
-            AsInstr mov_in;
-            mov_in.instr = AsInstr::Instr::as_mov;
-            mov_in.SetSizeSuffix(GetTypeSize(op->operand->GetTypeKW()));
+            uint64_t size = GetTypeSize(op->GetTypeKW());
+            Register temp = TryAllocRegister(false, size);
 
-            mov_in.oper2 = AsInstr::Operands::Reg;
-            mov_in.reg2 = TryAllocRegister(false, GetTypeSize(op->operand->GetTypeKW()));
 
-            VisitRes oper_vis = VisitNode(op->operand, glob, res);
-
-            switch (oper_vis.type)
-            {
-            case VisitRes::glob:
-            {
-                mov_in.oper1 = AsInstr::Operands::Label;
-                mov_in.l1 = oper_vis.gData->name;
-                break;
-            }
-            case VisitRes::loc:
-            {
-                mov_in.oper1 = AsInstr::Operands::Stack;
-                mov_in.mem1 = oper_vis.lData.offset;
-                break;
-            }
-            case VisitRes::reg:
-            {
-                FreeRegister(oper_vis.rData);
-                mov_in.oper1 = AsInstr::Operands::Reg;
-                mov_in.reg1 = oper_vis.rData;
-                break;
-            }
-            case VisitRes::cnst:
-            {
-                mov_in.oper1 = AsInstr::Operands::Const;
-                mov_in.l1 = oper_vis.cData->data.data;
-                break;
-            }
-            }
-            res.push_back(mov_in);
-
-            if (op->oper.type == TokenType::OperMin)
-            {
-                AsInstr neg_in;
-                neg_in.instr = AsInstr::Instr::as_neg;
-                neg_in.SetSizeSuffix(GetTypeSize(op->operand->GetTypeKW()));
-                neg_in.oper1 = AsInstr::Operands::Reg;
-                neg_in.reg1 = mov_in.reg2;
-
-                res.push_back(neg_in);
-            }
-            else if (op->oper.type == TokenType::OperInc)
-            {
-                AsInstr inc_in;
-                inc_in.instr = AsInstr::Instr::as_inc;
-                inc_in.SetSizeSuffix(GetTypeSize(op->operand->GetTypeKW()));
-                inc_in.oper1 = AsInstr::Operands::Reg;
-                inc_in.reg1 = mov_in.reg2;
-            }
-            else if (op->oper.type == TokenType::OperDec)
-            {
-                AsInstr inc_in;
-                inc_in.instr = AsInstr::Instr::as_dec;
-                inc_in.SetSizeSuffix(GetTypeSize(op->operand->GetTypeKW()));
-                inc_in.oper1 = AsInstr::Operands::Reg;
-                inc_in.reg1 = mov_in.reg2;
-            }
-
-            return VisitRes(mov_in.reg2);
         }
         }
         break;
@@ -766,35 +693,70 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
     case NodeType::BinOper:
     {
         BinOp* op = (BinOp*)node;
-        /*
-        if (op->oper.type == TokenType::OperLAnd || op->oper.type == TokenType::OperLOr)
+
+        Token noper(L"", TokenType::EoF, 0, 0, 0);
+        switch (op->oper.type)
         {
-            SolveCondition(op, res, jcondt, jcondf);
-            return VisitRes();
+        case TokenType::AssignPlus:
+            noper.type = TokenType::OperPlus;
+            break;
+
+        case TokenType::AssignMin:
+            noper.type = TokenType::OperMin;
+            break;
+
+        case TokenType::AssignMul:
+            noper.type = TokenType::OperMul;
+            break;
+
+        case TokenType::AssignPow:
+            noper.type = TokenType::OperPow;
+            break;
+
+        case TokenType::AssignDiv:
+            noper.type = TokenType::OperDiv;
+            break;
+
+        case TokenType::AssignPCent:
+            noper.type = TokenType::OperPCent;
+            break;
+
+        case TokenType::AssignLShift:
+            noper.type = TokenType::OperLShift;
+            break;
+
+        case TokenType::AssignRShift:
+            noper.type = TokenType::OperRShift;
+            break;
+
+        case TokenType::AssignBWAnd:
+            noper.type = TokenType::OperBWAnd;
+            break;
+
+        case TokenType::AssignBWOr:
+            noper.type = TokenType::OperBWOr;
+            break;
+
+        case TokenType::AssignXor:
+            noper.type = TokenType::OperXor;
+            break;
         }
-        */
+
+        if (noper.type != TokenType::EoF)
+        {
+            op->oper = noper;
+            BinOp* assign = new BinOp();
+            assign->oper = Token(L"=", TokenType::Assign, 0, 0, 0);
+            assign->r = op;
+            assign->l = op->r;
+
+            return VisitNode(assign, glob, res);
+        }
+
         VisitRes left_vis = VisitNode(op->l, glob, res);
         VisitRes right_vis = VisitNode(op->r, glob, res);
 
-        size_t op_size{};
-        if (op->GetTypeKW() != Keyword::kw_bool)
-        {
-            op_size = GetTypeSize(op->GetTypeKW());
-        }
-        else
-        {
-            op_size = std::max(
-                GetTypeSize(op->l->GetTypeKW()),
-                GetTypeSize(op->r->GetTypeKW())
-            );
-        }
-
-        // TODO: temp can be a place on the stack, but not only a register
-        Register temp = TryAllocRegister(false, op_size);
-
-        AsInstr mov_in;
-        mov_in.instr = AsInstr::Instr::as_mov;
-        mov_in.SetSizeSuffix(op_size);
+        size_t op_size  = GetTypeSize(op->GetTypeKW());
 
         /*
         left <op> right
@@ -811,55 +773,24 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
         4.Return <temp>
         */
 
-        switch (right_vis.type)
+        Register temp;
+        AsInstr mov_in;
+        if (right_vis.type != VisitRes::reg || op->oper.type == TokenType::OperDiv ||
+            (op->oper.type == TokenType::OperMul && !IsSigned(op->GetTypeKW())))
         {
-        case VisitRes::glob:
-        {
-            if (right_vis.gData->var_type == Keyword::kw_str16)
-            {
-                // change instruction to 'lea' cause we want pointer to be copied
-                mov_in.instr = AsInstr::Instr::as_lea;
-            }
-            mov_in.oper1 = AsInstr::Operands::Label;
-            mov_in.l1 = right_vis.gData->name;
-            break;
-        }
-        case VisitRes::loc:
-        {
-            mov_in.oper1 = AsInstr::Operands::Stack;
-            mov_in.mem1 = right_vis.lData.offset;
-            break;
-        }
-        case VisitRes::reg:
-        {
-            FreeRegister(right_vis.rData);
-            mov_in.oper1 = AsInstr::Operands::Reg;
-            mov_in.reg1 = right_vis.rData;
-            break;
-        }
-        case VisitRes::func:
-        {
-            // change instruction to 'lea' cause we want pointer to be copied
-            mov_in.instr = AsInstr::Instr::as_lea;
-            mov_in.oper1 = AsInstr::Operands::Label;
-            mov_in.l1 = right_vis.fData;
-            break;
-        }
-        case VisitRes::cnst:
-        {
-            mov_in.oper1 = AsInstr::Operands::Const;
-            mov_in.l1 = right_vis.cData->data.data;
-            break;
-        }
-        }
+            temp = TryAllocRegister(false, op_size);
 
-        mov_in.oper2 = AsInstr::Operands::Reg;
-        mov_in.reg2 = temp;
+            mov_in = MakeMov(right_vis, temp, op_size);
+        }
+        else
+        {
+            temp = right_vis.rData;
+        }
 
         AsInstr inst;
         if (op->GetTypeKW() != Keyword::kw_bool)
         {
-            inst.instr = TTypeToInstr(op->oper.type);
+            inst.instr = TTypeToInstr(op->oper.type, IsSigned(op->GetTypeKW()));
         }
         inst.SetSizeSuffix(op_size);
 
@@ -891,17 +822,16 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
             break;
         }
         }
-
         inst.oper2 = AsInstr::Operands::Reg;
         inst.reg2 = temp;
 
-        // negate the condition to jump to the end of if-statement when it is false
         TokenType bool_t = NegateLOp(op->oper.type);
         if (bool_t != TokenType::EoF)
         {
             // compare values
             inst.instr = AsInstr::Instr::as_cmp;
-            res.push_back(mov_in);
+            if (right_vis.type != VisitRes::reg)
+                res.push_back(mov_in);
             res.push_back(inst);
 
             return VisitRes(bool_t);
@@ -912,15 +842,50 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
             // this code gives incorrect assembly for assignemet operator, e.g.
             // assembly for 'program.var = 2':
             //     movq $2, %rbx
-            //     movq program.var, % rbx
+            //     movq program.var, %rbx
             // to fix this we have to swap operands of the second instruction
-        
+
             inst.SwapOperands();
+            if (right_vis.type != VisitRes::reg)
+                res.push_back(mov_in);
+            res.push_back(inst);
         }
+        // Special case: divide and multiply (unsigned)
+        // assume the operands are already converted to 64-bit
+        else if (op->oper.type == TokenType::OperDiv ||
+            (op->oper.type == TokenType::OperMul && !IsSigned(op->GetTypeKW())))
+        {
+            mov_in.reg2 = Register::rax;
+            res.push_back(mov_in);
 
-        res.push_back(mov_in);
-        res.push_back(inst);
+            res.push_back(MakeMov(left_vis, temp, op_size));
+            if (IsSigned(op->GetTypeKW()))
+            {
+                res.push_back(AsInstr(L"cqto\n")); // signed extend of dividend
+            }
+            else
+            {
+                // unsigned extend of dividend
+                AsInstr uext;
+                uext.instr = AsInstr::Instr::as_xor;
+                uext.SetSizeSuffix(8);
+                uext.oper1 = uext.oper2 = AsInstr::Operands::Reg;
+                uext.reg1 = uext.reg2 = Register::rdx;
+                res.push_back(uext);
+            }
 
+            inst.oper1 = AsInstr::Operands::Reg;
+            inst.reg1 = temp;
+            inst.oper2 = AsInstr::Operands::Last;
+            res.push_back(inst);
+            res.push_back(MakeMov(mov_in.reg2, temp, op_size));
+        }
+        else
+        {
+            if (right_vis.type != VisitRes::reg)
+                res.push_back(mov_in);
+            res.push_back(inst);
+        }
         return VisitRes(temp);
     }
     case NodeType::Func:
@@ -944,7 +909,7 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
         func.push_back(std::make_pair(label, std::vector<AsInstr>()));
 
         /*
-        Enter instructions:
+        Stack frame enter instructions:
             pushq   %rbp
             movq    %rsp, %rbp
             subq    $<size of all locals of the function (in bytes)>, %rsp
@@ -956,12 +921,7 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
         enter_in[0].oper1 = AsInstr::Operands::Reg;
         enter_in[0].reg1 = Register::rbp;
 
-        enter_in[1].instr = AsInstr::Instr::as_mov;
-        enter_in[1].SetSizeSuffix(8);
-        enter_in[1].oper1 = AsInstr::Operands::Reg;
-        enter_in[1].reg1 = Register::rsp;
-        enter_in[1].oper2 = AsInstr::Operands::Reg;
-        enter_in[1].reg2 = Register::rbp;
+        enter_in[1] = MakeMov(Register::rsp, Register::rbp, 8);
 
         enter_in[2].instr = AsInstr::Instr::as_sub;
         enter_in[2].SetSizeSuffix(8);

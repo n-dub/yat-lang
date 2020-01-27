@@ -107,9 +107,9 @@ class CodeGen
     {
         // bool RegA = true; // rax register is reserved for fn return value
         // bool RegC = true; // rcx register is reserved for 'this' pointer
+        // bool RegD = true; // rdx register is reserved for octaples in division
 
         bool RegB = true; // TRUE if the register is free
-        bool RegD = true; // TRUE if the register is free
 
         bool RegXmm[16]{};  // TRUE if the register is free
 
@@ -123,6 +123,7 @@ class CodeGen
     inline LocalVar GetLocal(Var* v);
 
     inline void SolveCondition(ASTNode* cond, std::vector<AsInstr>& res, const AsInstr& jumpt, const AsInstr& jumpf);
+    inline AsInstr MakeMov(const VisitRes& from, const VisitRes& to, const size_t op_size);
 
     void VisitNSpace(Namespace* ns);
     void VisitBlock(StatementBlock* b, bool glob, std::vector<AsInstr>& res);

@@ -39,15 +39,28 @@ class Tokenizer
     bool IsNumValid(const Token& t);
     Keyword IsKeyword(const String& str);
     wchar_t ParseEscapeChar();
-    String GetLine(uint64_t& n_col);
+    String GetLine(uint64_t offs, uint64_t offe, size_t& s);
+
+    // index of the current file
+    uint64_t m_cfile = 0;
+    void UnexpToken(const String& msg);
 
 public:
+    struct FileInfo
+    {
+        uint64_t StartLine = 0, EndLine = 0;
+        String Name{};
+        FileInfo(uint64_t s, uint64_t e, const String& n);
+    };
+
+    std::vector<FileInfo> files{};
+
     bool SkipNext = false;
     Token SkipToken{};
 
     Tokenizer(const std::vector<String>& str, bool path = true);
 
-    void UnexpToken(const String& msg);
+    void UnexpToken(const String& msg, Token* t);
 
     Token ParseName();
     String ParseNumber();

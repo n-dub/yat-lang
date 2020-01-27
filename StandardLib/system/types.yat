@@ -1,0 +1,16 @@
+/*
+nspace system.types
+{
+    fn IntToStr = i64 x -> str16 {
+        str16 result;
+        if x < 0 {
+            result += '-'
+        }
+        while x > 0 {
+            result += x % 10 + '0'
+        }
+        ret result
+    };
+}
+*/
+

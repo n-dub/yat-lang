@@ -18,14 +18,16 @@
 #include "Parser.h"
 #include "ErrorChecking.h"
 
+#define NEXT_TOK { prev_tok = cur_tok; cur_tok = m_tok->Next(); }
+
 #define MATCH(_ttype, _msg) cur_tok = m_tok->Next();            \
 if (cur_tok.type != TokenType:: ##_ttype) {                     \
-    m_tok->UnexpToken(_msg);                                    \
+    m_tok->UnexpToken(_msg, &cur_tok);                          \
 }
 
 #define MATCH_CUR(_ttype, _msg)                                 \
 if (cur_tok.type != TokenType:: ##_ttype) {                     \
-    m_tok->UnexpToken(_msg);                                    \
+    m_tok->UnexpToken(_msg, &cur_tok);                          \
 } 
 
 Parser::Parser(Tokenizer* t)
@@ -35,7 +37,7 @@ Parser::Parser(Tokenizer* t)
 
 void Parser::Parse(AST& ast)
 {
-    cur_tok = m_tok->Next();
+    NEXT_TOK;
 
     while (cur_tok.type != TokenType::EoF)
     {
@@ -46,11 +48,11 @@ void Parser::Parse(AST& ast)
 
         if (cur_tok.data == L"import")
         {
-            cur_tok = m_tok->Next();
-            cur_tok = m_tok->Next();
+            NEXT_TOK;
+            NEXT_TOK;
             if (cur_tok.type == TokenType::Semi)
             {
-                cur_tok = m_tok->Next();
+                NEXT_TOK;
             }
         }
 
@@ -58,7 +60,7 @@ void Parser::Parse(AST& ast)
         {
             if (cur_tok.kw_type == Keyword::kw_nspace)
             {
-                cur_tok = m_tok->Next();
+                NEXT_TOK;
                 if (cur_tok.type == TokenType::Name)
                 {
                     m_nspace->name = L"";
@@ -66,23 +68,23 @@ void Parser::Parse(AST& ast)
                         || cur_tok.type == TokenType::Name)
                     {
                         m_nspace->name += cur_tok.data;
-                        cur_tok = m_tok->Next();
+                        NEXT_TOK;
                     }
                 }
                 else
                 {
-                    m_tok->UnexpToken(L"Expected name of namespace");
+                    m_tok->UnexpToken(L"Expected name of namespace", &cur_tok);
                 }
 
                 MATCH_CUR(LBrace, L"Expected a statement block in braces, that defines the namespace");
-                cur_tok = m_tok->Next();
+                NEXT_TOK;
                 m_nspace->block = ParseBlock(false);
                 m_nspace->block->AddTypeCvt(); // add type coversion where necessary
-
+                /*
                 if (cur_tok.type != TokenType::EoF)
                 {
-                    cur_tok = m_tok->Next();
-                }
+                    NEXT_TOK;
+                }*/
             }
             else if (cur_tok.kw_type == Keyword::kw_using)
             {
@@ -91,13 +93,13 @@ void Parser::Parse(AST& ast)
             else
             {
                 m_tok->UnexpToken(L"Program in Yat consists of namespaces, so only either "
-                    L"'nspace' or 'using' keywords are allowed outside of namespace.");
+                    L"`nspace', `import' or `using' keywords are allowed outside of namespace.", &cur_tok);
             }
         }
         else
         {
             m_tok->UnexpToken(L"Program in Yat consists of namespaces, so only either "
-                L"'nspace' or 'using' keywords are allowed outside of namespace.");
+                L"`nspace', `import' or `using' keywords are allowed outside of namespace.", &cur_tok);
         }
         if (m_nspace->block)
         {
@@ -134,10 +136,10 @@ Var* Parser::GetVariable(String v, String* fname)
 
     while (cur_tok.type == TokenType::Dot || cur_tok.type == TokenType::Name)
     {
-        cur_tok = m_tok->Next();
+        NEXT_TOK;
         if (cur_tok.type == TokenType::Dot)
         {
-            cur_tok = m_tok->Next();
+            NEXT_TOK;
             v += L".";
             v += cur_tok.data;
         }
@@ -179,7 +181,7 @@ inline void Parser::AddVariable(Var* var, int64_t idx)
                 std::wstringstream ss;
                 ss << L"Variable " << var->name << (var->mut ? L"mut " : L"")
                     << " has already been defined";
-                m_tok->UnexpToken(ss.str());
+                m_tok->UnexpToken(ss.str(), &cur_tok);
             }
         }
     }
@@ -205,7 +207,7 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
         switch (cur_tok.type)
         {
         case TokenType::PPBegin:
-            cur_tok = m_tok->Next();
+            NEXT_TOK;
             ParsePreProc();
             break;
         case TokenType::Keyword:
@@ -216,19 +218,23 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
             }
             else if (cur_tok.kw_type == Keyword::kw_while)
             {
-                cur_tok = m_tok->Next();
                 WhileLoop* lp = new WhileLoop();
+
+                NEXT_TOK;
+
                 Keyword kw;
+                auto te = cur_tok;
                 lp->condition = ParseExpression(false, kw);
                 if (kw != Keyword::kw_bool)
                 {
-                    m_tok->UnexpToken(L"Expected a boolean expression in while loop");
+                    m_tok->UnexpToken(L"Expected a boolean expression in while loop", &te);
                 }
+
                 if (cur_tok.type != TokenType::LBrace)
                 {
-                    m_tok->UnexpToken(L"Expected a statement block. Braces are required in loops");
+                    m_tok->UnexpToken(L"Expected a statement block. Braces are required in loops", &cur_tok);
                 }
-                cur_tok = m_tok->Next();
+                NEXT_TOK;
                 lp->body = ParseBlock(true);
                 lp->body->is_fn = false;
                 r->children.push_back(lp);
@@ -239,7 +245,7 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
                 UnOp* ret = new UnOp();
                 ret->oper = cur_tok;
 
-                cur_tok = m_tok->Next();
+                NEXT_TOK;
 
                 Keyword expr_type;
                 ret->operand = ParseExpression(false, expr_type);
@@ -247,42 +253,42 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
 
                 r->children.push_back(ret);
 
-                // cur_tok = m_tok->Next();
+                // NEXT_TOK;
                 break;
             }
             else if (cur_tok.kw_type == Keyword::kw_asm)
             {
+                auto top = cur_tok;
                 if (m_pp.type != PPDir::unsafe)
                 {
-                    m_tok->UnexpToken(L"Inline assembly is not allowed in a block not marked as unsafe");
+                    m_tok->UnexpToken(L"Inline assembly is not allowed in a block not marked as unsafe", &cur_tok);
                 }
 
-                cur_tok = m_tok->Next();
-
+                NEXT_TOK;
+                /*
                 if (cur_tok.type == TokenType::LParen)
                 {
-                    cur_tok = m_tok->Next(); // remove '('
+                    NEXT_TOK; // remove '('
                     while (cur_tok.type != TokenType::RParen)
                     {
-                        // TODO: parse inline asm parameters
-                        cur_tok = m_tok->Next();
+                        NEXT_TOK;
                     }
-                    cur_tok = m_tok->Next(); // remove ')'
+                    NEXT_TOK; // remove ')'
                 }
-
+                */
                 if (cur_tok.type != TokenType::LBrace)
                 {
-                    m_tok->UnexpToken(L"Invalid inline assembly syntax");
+                    m_tok->UnexpToken(L"Invalid inline assembly syntax. Expected a'{'", &cur_tok);
                 }
-                cur_tok = m_tok->Next();
+                NEXT_TOK;
 
                 UnOp* res = new UnOp();
-                res->oper = Token(L"_asm", TokenType::Keyword, Keyword::kw_asm);
+                res->oper = top;
                 cur_tok = m_tok->ParseRawUntil(L'}');
                 res->operand = new ConstLeaf(cur_tok);
                 r->children.push_back(res);
 
-                cur_tok = m_tok->Next();
+                NEXT_TOK;
 
                 break;
             }
@@ -296,23 +302,23 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
         }
         case TokenType::EoF:
         {
-            m_tok->UnexpToken(L"End of file while parsing statement block. Did you forget to close the brace?");
+            m_tok->UnexpToken(L"End of file while parsing statement block. Did you forget to close the brace?", &cur_tok);
         }
         default:
         {
-            m_tok->UnexpToken(L"A statement must begin with either a type name, a declared variable name or a prefix operator.");
+            m_tok->UnexpToken(L"A statement must begin with either a type name, a declared variable name or a prefix operator.", &cur_tok);
         }
         }
-
+        /*
         if (cur_tok.type != TokenType::RBrace)
         {
-            cur_tok = m_tok->Next();
+            NEXT_TOK;
         }
 
         if (cur_tok.type == TokenType::Semi)
         {
-            cur_tok = m_tok->Next();
-        }
+            NEXT_TOK;
+        }*/
     }
 
     for (Var* v : m_vars[m_vars.size() - 1])
@@ -323,7 +329,7 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
     m_pp.Reset();
     if (is_fn) m_vars.pop_back();
     r->is_fn = is_fn;
-    //cur_tok = m_tok->Next();
+    NEXT_TOK;
     return r;
 }
 
@@ -333,19 +339,22 @@ ASTNode* Parser::ParseStatement()
     {
     case TokenType::Keyword: // if current token is a keyword, the statement is variable declaration
     {
+        auto te = cur_tok;
         Var* vd = ParseVarDecl();
 
+        //NEXT_TOK;
+        if (vd->var_type == Keyword::kw_let)
+        {
+            m_tok->UnexpToken(L"Variable declared with 'let' keyword must be initialized", &te);
+        }
         if (cur_tok.type == TokenType::Semi)
         {
-            //cur_tok = m_tok->Next();
-            if (vd->var_type == Keyword::kw_let)
-            {
-                m_tok->UnexpToken(L"Variable declared with 'let' keyword must be initialized");
-            }
-            return vd;
+            NEXT_TOK;
         }
 
-        throw Error(L"Compiler Error\n");
+        return vd;
+
+        //m_tok->UnexpToken(L"Compiler Error\n", &cur_tok);
     }
     case TokenType::Name:
     case TokenType::OperInc:
@@ -353,11 +362,16 @@ ASTNode* Parser::ParseStatement()
     {
         Keyword q;
 
-        return ParseExpression(false, q);
+        auto r = ParseExpression(false, q);
+        if (cur_tok.type == TokenType::Semi)
+        {
+            NEXT_TOK;
+        }
+        return r;
     }
     }
 
-    throw Error(L"Compiler Error\n");
+    m_tok->UnexpToken(L"Compiler Error\n", &cur_tok);
 }
 
 ASTNode* Parser::ParseExpression(bool fn, Keyword& exp_type)
@@ -378,16 +392,16 @@ ASTNode* Parser::ParseExpression(bool fn, Keyword& exp_type)
         m_vars.push_back(r->params); // push all parameters
 
         MATCH_CUR(Arrow, L"Expected function return type after arrow '->'.");
-        cur_tok = m_tok->Next();
+        NEXT_TOK;
 
         r->ret_type = exp_type = cur_tok.kw_type;
 
-        cur_tok = m_tok->Next();
+        NEXT_TOK;
         return r;
         /*
         if (cur_tok.type == TokenType::LBrace)
         {
-            cur_tok = m_tok->Next();
+            NEXT_TOK;
             sb = ParseBlock(true);
         }
         else
@@ -411,12 +425,17 @@ ASTNode* Parser::ParseExpression(bool fn, Keyword& exp_type)
 
     if (cur_tok.kw_type == Keyword::kw_rng) // range expression
     {
-        cur_tok = m_tok->Next();
+        NEXT_TOK;
         exp_type = Keyword::kw_rng;
         return ParseRange();
     }
 
     ASTNode* node = ShuntingYard();
+
+    if (cur_tok.type == TokenType::Semi)
+    {
+        NEXT_TOK;
+    }
 
     exp_type = node->GetTypeKW();
 
@@ -427,27 +446,27 @@ inline IfStatement* Parser::ParseIf()
 {
     IfStatement* st = new IfStatement();
 
-    cur_tok = m_tok->Next();
+    NEXT_TOK;
 
     Keyword et;
+    auto ts = cur_tok;
     st->condition = ParseExpression(false, et);
     if (et != Keyword::kw_bool)
     {
-        m_tok->UnexpToken(L"Expected a boolean expression");
+        m_tok->UnexpToken(L"Expected a boolean expression", new Token(L"", ts.type, ts.start, prev_tok.end, ts.line));
     }
 
     if (cur_tok.type != TokenType::LBrace)
     {
-        m_tok->UnexpToken(L"Expected a statement block. Braces are required in conditions and loops");
+        m_tok->UnexpToken(L"Expected a statement block. Braces are required in conditions and loops", &cur_tok);
     }
-    cur_tok = m_tok->Next();
+    NEXT_TOK;
     st->then_b = ParseBlock(true);
     st->then_b->is_fn = false;
-    cur_tok = m_tok->Next();
 
     if (cur_tok.kw_type == Keyword::kw_else)
     {
-        cur_tok = m_tok->Next();
+        NEXT_TOK;
         if (cur_tok.kw_type == Keyword::kw_if)
         {
             IfStatement* else_if = ParseIf();
@@ -461,19 +480,13 @@ inline IfStatement* Parser::ParseIf()
         {
             if (cur_tok.type != TokenType::LBrace)
             {
-                m_tok->UnexpToken(L"Expected a statement block. Braces are required in conditions");
+                m_tok->UnexpToken(L"Expected a statement block. Braces are required in conditions", &cur_tok);
             }
 
-            cur_tok = m_tok->Next();
+            NEXT_TOK;
             st->else_b = ParseBlock(true);
             st->else_b->is_fn = false;
         }
-    }
-    else
-    {
-        // there is no 'else', so we just add previously removed token '}'
-        m_tok->SkipNext = true;
-        m_tok->SkipToken = cur_tok;
     }
 
     return st;
@@ -487,10 +500,10 @@ inline std::vector<Var*> Parser::ParseParamList()
         return { ParseVarDecl(false) };
     }
 
-    cur_tok = m_tok->Next();
+    NEXT_TOK;
     if (cur_tok.type == TokenType::RParen) // empty param list
     {
-        cur_tok = m_tok->Next();
+        NEXT_TOK;
         return {};
     }
 
@@ -501,10 +514,10 @@ inline std::vector<Var*> Parser::ParseParamList()
         r.push_back(ParseVarDecl(false));
         if (cur_tok.type == TokenType::RParen) break;
         MATCH_CUR(Comma, L"Expected a comma ',' after parameter in lambda");
-        cur_tok = m_tok->Next();
+        NEXT_TOK;
     }
 
-    cur_tok = m_tok->Next();
+    NEXT_TOK;
     return r;
 }
 
@@ -514,6 +527,7 @@ Var* Parser::ParseVarDecl(bool add)
     String name;
     bool mut = false, is_arr = false;
     Range* array_rgn = nullptr;
+    std::vector<TemplateParam> temp_params;
 
     // i32 a = 10;  // stop on '='  (TokenType::Assign)
     // i32 a;       // stop on ';'  (TokenType::Semi)
@@ -549,17 +563,17 @@ Var* Parser::ParseVarDecl(bool add)
             {
                 if (var_type != Keyword::Last)
                 {
-                    m_tok->UnexpToken(L"Multiple data types not allowed.");
+                    m_tok->UnexpToken(L"Multiple data types not allowed.", &cur_tok);
                 }
                 var_type = cur_tok.kw_type;
-                cur_tok = m_tok->Next();
+                NEXT_TOK;
                 if (cur_tok.type == TokenType::LBracket) // array
                 {
                     is_arr = true;
-                    cur_tok = m_tok->Next();
+                    NEXT_TOK;
                     if (cur_tok.type == TokenType::RBrace)
                     {
-                        cur_tok = m_tok->Next();
+                        NEXT_TOK;
                     }
                     else
                     {
@@ -569,13 +583,13 @@ Var* Parser::ParseVarDecl(bool add)
                         if (range->type == NodeType::Range)
                         {
                             array_rgn = (Range*)range;
-                            cur_tok = m_tok->Next();
+                            NEXT_TOK;
                         }
                         else
                         {
                             array_rgn = new Range(
                                 new ConstLeaf(
-                                    Token(L"0", TokenType::Uint64L)
+                                    Token(L"0", TokenType::Uint64L, 0, 0, 0)
                                 ),
                                 (ConstLeaf*)range,
                                 Range::LeftInclusive
@@ -591,21 +605,23 @@ Var* Parser::ParseVarDecl(bool add)
                 break;
             }
             default:
-                m_tok->UnexpToken(L"Invalid keyword in statement.");
+                m_tok->UnexpToken(L"Invalid keyword in statement.", &cur_tok);
             }
+        }
+        else if (cur_tok.type == TokenType::Name)
+        {
+            name = m_nspace->name + L"." + cur_tok.data;
+        }
+        else if (cur_tok.type == TokenType::OperLess)
+        {
+            NEXT_TOK;
+            ParseTypeParams(temp_params);
         }
         else
         {
-            if (cur_tok.type == TokenType::Name)
-            {
-                name = m_nspace->name + L"." + cur_tok.data;
-            }
-            else
-            {
-                m_tok->UnexpToken(L"Invalid statement. Expected name of the variable.");
-            }
+            m_tok->UnexpToken(L"Invalid statement. Expected name of the variable.", &cur_tok);
         }
-        cur_tok = m_tok->Next();
+        NEXT_TOK;
     }
 
     Var* r = new Var();
@@ -618,7 +634,7 @@ Var* Parser::ParseVarDecl(bool add)
     Keyword kw;
     if (cur_tok.type == TokenType::Assign)
     {
-        cur_tok = m_tok->Next();
+        NEXT_TOK;
 
         if (var_type == Keyword::kw_fn)
         {
@@ -632,8 +648,9 @@ Var* Parser::ParseVarDecl(bool add)
             StatementBlock* sb;
             if (cur_tok.type == TokenType::LBrace)
             {
-                cur_tok = m_tok->Next();
+                NEXT_TOK;
                 sb = ParseBlock(true);
+                NEXT_TOK;
             }
             else
             {
@@ -646,7 +663,7 @@ Var* Parser::ParseVarDecl(bool add)
                 if (init->GetTypeKW() != Keyword::kw_null)
                 {
                     UnOp* ret = new UnOp();
-                    ret->oper = Token(L"ret", TokenType::Keyword, Keyword::kw_ret);
+                    ret->oper = Token(L"ret", TokenType::Keyword, 0, 0, 0, Keyword::kw_ret);
                     ret->operand = sb->children[sb->children.size() - 1];
 
                     sb->children[sb->children.size() - 1] = ret;
@@ -667,15 +684,15 @@ Var* Parser::ParseVarDecl(bool add)
     {
         if (add) AddVariable(r);
     }
-
+    /*
     while (cur_tok.type != TokenType::Semi
         && cur_tok.type != TokenType::Arrow
         && cur_tok.type != TokenType::Comma
         && cur_tok.type != TokenType::RParen)
     {
-        cur_tok = m_tok->Next();
+        NEXT_TOK;
     }
-
+    */
     if (r->var_type == Keyword::kw_let)
     {
         r->var_type = kw;
@@ -684,9 +701,33 @@ Var* Parser::ParseVarDecl(bool add)
     return r;
 }
 
+inline void Parser::ParseTypeParams(std::vector<TemplateParam>& p)
+{
+    while (cur_tok.type != TokenType::OperGreater)
+    {
+        if (cur_tok.type == TokenType::Keyword)
+        {
+            p.push_back(cur_tok.kw_type);
+        }
+        else if (cur_tok.type == TokenType::Name)
+        {
+            p.push_back(cur_tok.data);
+        }
+        else
+        {
+            m_tok->UnexpToken(L"Expected a keyword or a name in type parameter list", &cur_tok);
+        }
+        NEXT_TOK;
+        if (cur_tok.type == TokenType::Comma)
+        {
+            NEXT_TOK;
+        }
+    }
+}
+
 inline String Parser::ParseUsing()
 {
-    cur_tok = m_tok->Next();
+    NEXT_TOK;
     String r = L"";
 
     while (cur_tok.type != TokenType::EoF && cur_tok.type != TokenType::Semi)
@@ -697,12 +738,12 @@ inline String Parser::ParseUsing()
         }
         else
         {
-            m_tok->UnexpToken(L"Invalid token in using statement or missing semicolon.");
+            m_tok->UnexpToken(L"Invalid token in using statement or missing semicolon.", &cur_tok);
         }
-        cur_tok = m_tok->Next();
+        NEXT_TOK;
     }
 
-    cur_tok = m_tok->Next();
+    NEXT_TOK;
     return r;
 }
 
@@ -715,9 +756,9 @@ inline void Parser::ParsePreProc()
         {
             m_pp.type = PPDir::unsafe;
         }
-        cur_tok = m_tok->Next();
+        NEXT_TOK;
     }
-    //cur_tok = m_tok->Next();
+    NEXT_TOK;
 }
 
 inline Range* Parser::ParseRange()
@@ -727,38 +768,38 @@ inline Range* Parser::ParseRange()
     {
         res->flags |= Range::LeftInclusive;
     }
-    cur_tok = m_tok->Next();
+    NEXT_TOK;
 
     Keyword k;
     ASTNode* lb = ParseExpression(false, k);
-    //cur_tok = m_tok->Next();
+    //NEXT_TOK;
 
     if (!lb->isConstEval())
     {
-        m_tok->UnexpToken(L"Only number constants are allowed in range expressions");
+        m_tok->UnexpToken(L"Only number constants are allowed in range expressions", &cur_tok);
     }
-
+    /*
     if (cur_tok.type != TokenType::Semi)
     {
-        m_tok->UnexpToken(L"Invalid range expression (expected a semicolon)");
+        m_tok->UnexpToken(L"Invalid range expression (expected a semicolon)", &cur_tok);
     }
-
-    cur_tok = m_tok->Next();
+    NEXT_TOK;
+    */
 
     ASTNode* rb = ParseExpression(false, k);
 
-    //cur_tok = m_tok->Next();
+    //NEXT_TOK;
 
     if (!lb->isConstEval())
     {
-        m_tok->UnexpToken(L"Only number constants are allowed in range expressions");
+        m_tok->UnexpToken(L"Only number constants are allowed in range expressions", &cur_tok);
     }
 
     if (cur_tok.type == TokenType::RBracket)
     {
         res->flags |= Range::RightInclusive;
     }
-    cur_tok = m_tok->Next();
+    NEXT_TOK;
 
     res->l = (ConstLeaf*)lb;
     res->r = (ConstLeaf*)rb;
@@ -805,11 +846,12 @@ inline ASTNode* Parser::ShuntingYard()
         }
         else if (cur_tok.type == TokenType::Name)
         {
+            auto te = cur_tok;
             Var* var = GetVariable(cur_tok.data);
 
             if (!var)
             {
-                m_tok->UnexpToken(L"Usage of undeclared variable");
+                m_tok->UnexpToken(L"Usage of undeclared variable", &te);
             }
 
             cur_tok.data = var->name;
@@ -817,6 +859,10 @@ inline ASTNode* Parser::ShuntingYard()
             {
                 Lambda* b = (Lambda*)var->initial;
                 operatorStack.push_back(std::make_pair(cur_tok, b->params.size()));
+            }
+            else if (var->is_arr)
+            {
+                operatorStack.push_back(std::make_pair(cur_tok, 2));
             }
             else
             {
@@ -942,6 +988,20 @@ inline ASTNode* Parser::ShuntingYard()
             }
 
             operatorStack.pop_back();
+
+            if (operatorStack.size() &&
+                operatorStack[operatorStack.size() - 1].first.type == TokenType::Name)
+            {
+                Var* var = GetVariable(operatorStack[operatorStack.size() - 1].first.data);
+                ASTNode* e = exprStack[exprStack.size() - 1];
+                exprStack.pop_back();
+
+                ArrayLeaf* arr = new ArrayLeaf(var, e);
+
+                exprStack.push_back(arr);
+                operatorStack.pop_back();
+            }
+
             lastNumVar = true;
             --LBrackets;
         }
@@ -949,10 +1009,10 @@ inline ASTNode* Parser::ShuntingYard()
         {
             if (operatorStack.size())
             {
-                OperPrec topPrec = GetPrecedence(operatorStack[operatorStack.size() - 1].first.type,
+                int topPrec = GetPrecedence(operatorStack[operatorStack.size() - 1].first.type,
                     operatorStack[operatorStack.size() - 1].second == 1);
 
-                OperPrec curPrec = GetPrecedence(cur_tok.type, lastNumVar ? false : true);
+                int curPrec = GetPrecedence(cur_tok.type, lastNumVar ? false : true);
 
                 while (topPrec >= curPrec)
                 {
@@ -1001,10 +1061,10 @@ inline ASTNode* Parser::ShuntingYard()
                 }
             }
             operatorStack.push_back(std::make_pair(cur_tok, lastNumVar ? 2 : 1));
-
+ 
             lastNumVar = false;
         }
-        cur_tok = m_tok->Next();
+        NEXT_TOK;
     }
 
     if (operatorStack.size() <= 0)
@@ -1041,7 +1101,7 @@ inline ASTNode* Parser::ShuntingYard()
                 }
                 else
                 {
-                    m_tok->UnexpToken(L"Cannot assign to immutable variable.");
+                    m_tok->UnexpToken(L"Cannot assign to immutable variable.", &node->oper);
                 }
             }
 

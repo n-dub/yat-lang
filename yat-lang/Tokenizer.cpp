@@ -100,12 +100,17 @@ Tokenizer::Tokenizer(const std::vector<String>& str, bool path)
     m_code = L"";
     if (path)
     {
+        uint64_t st_line = 0;
         for (const String& s : str)
         {
             if (!ReadFile(s, m_code))
             {
                 throw Error(L"file " + s + L" not found\n");
             }
+
+            uint64_t lines = std::count(m_code.cbegin(), m_code.cend(), L'\n');
+            files.push_back(FileInfo(st_line, st_line + lines, s));
+            st_line += lines;
         }
     }
     else
@@ -121,14 +126,23 @@ Tokenizer::Tokenizer(const std::vector<String>& str, bool path)
 
 void Tokenizer::UnexpToken(const String& msg)
 {
-    uint64_t n_col;
-    String r = GetLine(n_col);
-    throw UnexpectedToken(prevLine, n_col, msg, r);
+    size_t _0{};
+    String r = GetLine(m_offset, m_offset, _0);
+    throw UnexpectedToken(prevLine - files[m_cfile].StartLine, msg, r, 0, 0, files[m_cfile].Name);
+}
+
+void Tokenizer::UnexpToken(const String& msg, Token* t)
+{
+    size_t s{};
+    String r = GetLine(t->start, t->end, s);
+    throw UnexpectedToken(t->line - files[m_cfile].StartLine, msg, r, t->start - s, t->end - s, files[m_cfile].Name);
 }
 
 Token Tokenizer::ParseName()
 {
     String r = L"";
+
+    uint64_t s_offset = m_offset;
 
     wchar_t c = m_code[m_offset];
 
@@ -139,11 +153,11 @@ Token Tokenizer::ParseName()
         c = m_code[m_offset];
     }
 
-    SkipWhite();
-
     Keyword kw = IsKeyword(r);
 
-    return Token(r, TokenType::Name, kw);
+    auto t = Token(r, TokenType::Name, s_offset, m_offset, line, kw);
+    SkipWhite();
+    return t;
 }
 
 String Tokenizer::ParseNumber()
@@ -159,14 +173,13 @@ String Tokenizer::ParseNumber()
         c = m_code[m_offset];
     }
 
-    SkipWhite();
-
     return r;
 }
 
 Token Tokenizer::ParseNumberLiteral()
 {
     String r = ParseNumber();
+    auto s_offset = m_offset;
 
     if (m_code[m_offset] == L'i')
     {
@@ -174,19 +187,27 @@ Token Tokenizer::ParseNumberLiteral()
         String bits = ParseNumber();
         if (bits == L"8")
         {
-            return Token(r, TokenType::Int8L);
+            auto t = Token(r, TokenType::Int8L, s_offset, m_offset, line);
+            SkipWhite();
+            return t;
         }
         if (bits == L"16")
         {
-            return Token(r, TokenType::Int16L);
+            auto t = Token(r, TokenType::Int16L, s_offset, m_offset, line);
+            SkipWhite();
+            return t;
         }
         if (bits == L"32")
         {
-            return Token(r, TokenType::Int32L);
+            auto t = Token(r, TokenType::Int32L, s_offset, m_offset, line);
+            SkipWhite();
+            return t;
         }
         if (bits == L"64")
         {
-            return Token(r, TokenType::Int64L);
+            auto t = Token(r, TokenType::Int64L, s_offset, m_offset, line);
+            SkipWhite();
+            return t;
         }
         UnexpToken(L"\"i\" after a number literal must be followed by number of bits (8, 16, 32 or 64).");
     }
@@ -197,23 +218,33 @@ Token Tokenizer::ParseNumberLiteral()
         String bits = ParseNumber();
         if (bits == L"8")
         {
-            return Token(r, TokenType::Uint8L);
+            auto t = Token(r, TokenType::Uint8L, s_offset, m_offset, line);
+            SkipWhite();
+            return t;
         }
         if (bits == L"16")
         {
-            return Token(r, TokenType::Uint16L);
+            auto t = Token(r, TokenType::Uint16L, s_offset, m_offset, line);
+            SkipWhite();
+            return t;
         }
         if (bits == L"32")
         {
-            return Token(r, TokenType::Uint32L);
+            auto t = Token(r, TokenType::Uint32L, s_offset, m_offset, line);
+            SkipWhite();
+            return t;
         }
         if (bits == L"64")
         {
-            return Token(r, TokenType::Uint64L);
+            auto t = Token(r, TokenType::Uint64L, s_offset, m_offset, line);
+            SkipWhite();
+            return t;
         }
         UnexpToken(L"\"u\" after a number literal must be followed by number of bits (8, 16, 32 or 64).");
     }
-    return Token(r, TokenType::Int32L);
+    auto t = Token(r, TokenType::Int32L, s_offset, m_offset, line);
+    SkipWhite();
+    return t;
 }
 
 wchar_t Tokenizer::ParseEscapeChar()
@@ -249,10 +280,11 @@ wchar_t Tokenizer::ParseEscapeChar()
     UnexpToken(L"Invalid escape character. If you need to use a backslash (\\), double it (\\\\) to avoid this error.");
 }
 
-String Tokenizer::GetLine(uint64_t& n_col)
+String Tokenizer::GetLine(uint64_t offs, uint64_t offe, size_t& s)
 {
-    size_t s = m_code.find_last_of(L'\n', prevOffset);
-    size_t e = m_code.find_first_of(L'\n', prevOffset);
+    s = m_code.find_last_of(L'\n', offs);
+    if (s == String::npos) s = 0;
+    size_t e = m_code.find_first_of(L'\n', offe);
 
     String res = m_code.substr(s, e - s);
 
@@ -265,7 +297,7 @@ String Tokenizer::GetLine(uint64_t& n_col)
         }
     }
 
-    n_col = prevCol - i;
+    s += i;
 
     return res.substr(i);
 }
@@ -308,6 +340,11 @@ void Tokenizer::SkipComments()
                     GetChar();
                 }
             }
+            else
+            {
+                SkipWhite();
+                return;
+            }
         }
         else
         {
@@ -321,6 +358,8 @@ template<>
 Token Tokenizer::ParseStringLiteral<Tokenizer::StringType::Regular>()
 {
     String r = L"";
+    auto s_offset = m_offset;
+
     while (m_offset < m_code.length())
     {
         switch (m_code[m_offset])
@@ -328,7 +367,7 @@ Token Tokenizer::ParseStringLiteral<Tokenizer::StringType::Regular>()
         case L'"':
         {
             GetChar();
-            return Token(r, TokenType::String);
+            return Token(r, TokenType::String, s_offset, m_offset, line);
         }
         case L'\n':
         {
@@ -353,13 +392,15 @@ template<>
 Token Tokenizer::ParseStringLiteral<Tokenizer::StringType::Raw>()
 {
     String r = L"";
+    auto s_offset = m_offset;
+
     while (m_offset < m_code.length())
     {
         if (m_code[m_offset] == L')' && m_code[m_offset + 1] == L'"')
         {
             GetChar();
             GetChar();
-            return Token(r, TokenType::String);
+            return Token(r, TokenType::String, s_offset, m_offset, line);
         }
 
         r += m_code[m_offset];
@@ -371,17 +412,19 @@ Token Tokenizer::ParseStringLiteral<Tokenizer::StringType::Raw>()
 
 Token Tokenizer::ParseRawUntil(wchar_t tt)
 {
+    auto s_offset = m_offset;
     size_t off = m_code.find_first_of(tt, m_offset) - m_offset;
     String str = m_code.substr(m_offset - 2, off);
     EatChars(off);
     prevCol = col;
     prevLine = line;
     prevOffset = m_offset;
-    return Token(str, TokenType::String);
+    return Token(str, TokenType::String, s_offset, m_offset, line);
 }
 
 Token Tokenizer::ParseOperator()
 {
+    auto s_offset = m_offset;
     switch (m_code[m_offset])
     {
     case L'+':
@@ -389,40 +432,40 @@ Token Tokenizer::ParseOperator()
         if (m_code[m_offset] == L'+')
         {
             GetChar();
-            return Token(L"++", TokenType::OperInc);
+            return Token(L"++", TokenType::OperInc, s_offset, m_offset, line);
         }
         else if (m_code[m_offset] == L'=')
         {
             GetChar();
-            return Token(L"+=", TokenType::AssignPlus);
+            return Token(L"+=", TokenType::AssignPlus, s_offset, m_offset, line);
         }
-        return Token(L"+", TokenType::OperPlus);
+        return Token(L"+", TokenType::OperPlus, s_offset, m_offset, line);
 
     case L'-':
         GetChar();
         if (m_code[m_offset] == L'-')
         {
             GetChar();
-            return Token(L"--", TokenType::OperDec);
+            return Token(L"--", TokenType::OperDec, s_offset, m_offset, line);
         }
         else if (m_code[m_offset] == L'=')
         {
             GetChar();
-            return Token(L"-=", TokenType::AssignMin);
+            return Token(L"-=", TokenType::AssignMin, s_offset, m_offset, line);
         }
         else if (m_code[m_offset] == L'>')
         {
             GetChar();
-            return Token(L"->", TokenType::Arrow);
+            return Token(L"->", TokenType::Arrow, s_offset, m_offset, line);
         }
-        return Token(L"-", TokenType::OperMin);
+        return Token(L"-", TokenType::OperMin, s_offset, m_offset, line);
 
     case L'*':
         GetChar();
         if (m_code[m_offset] == L'=')
         {
             GetChar();
-            return Token(L"*=", TokenType::AssignMul);
+            return Token(L"*=", TokenType::AssignMul, s_offset, m_offset, line);
         }
         else if (m_code[m_offset] == L'*')
         {
@@ -430,35 +473,35 @@ Token Tokenizer::ParseOperator()
             if (m_code[m_offset] == L'=')
             {
                 GetChar();
-                return Token(L"**=", TokenType::AssignPow);
+                return Token(L"**=", TokenType::AssignPow, s_offset, m_offset, line);
             }
-            return Token(L"**", TokenType::OperPow);
+            return Token(L"**", TokenType::OperPow, s_offset, m_offset, line);
         }
-        return Token(L"*", TokenType::OperMul);
+        return Token(L"*", TokenType::OperMul, s_offset, m_offset, line);
     case L'/':
         GetChar();
         if (m_code[m_offset] == L'=')
         {
             GetChar();
-            return Token(L"/=", TokenType::AssignDiv);
+            return Token(L"/=", TokenType::AssignDiv, s_offset, m_offset, line);
         }
-        return Token(L"/", TokenType::OperDiv);
+        return Token(L"/", TokenType::OperDiv, s_offset, m_offset, line);
     case L'%':
         GetChar();
         if (m_code[m_offset] == L'=')
         {
             GetChar();
-            return Token(L"%=", TokenType::AssignPCent);
+            return Token(L"%=", TokenType::AssignPCent, s_offset, m_offset, line);
         }
-        return Token(L"%", TokenType::OperPCent);
+        return Token(L"%", TokenType::OperPCent, s_offset, m_offset, line);
     case L'^':
         GetChar();
         if (m_code[m_offset] == L'=')
         {
             GetChar();
-            return Token(L"^=", TokenType::AssignXor);
+            return Token(L"^=", TokenType::AssignXor, s_offset, m_offset, line);
         }
-        return Token(L"^", TokenType::OperXor);
+        return Token(L"^", TokenType::OperXor, s_offset, m_offset, line);
     case L'<':
         GetChar();
         if (m_code[m_offset] == L'<')
@@ -467,16 +510,16 @@ Token Tokenizer::ParseOperator()
             if (m_code[m_offset] == L'=')
             {
                 GetChar();
-                return Token(L"<<=", TokenType::AssignLShift);
+                return Token(L"<<=", TokenType::AssignLShift, s_offset, m_offset, line);
             }
-            return Token(L"<<", TokenType::OperLShift);
+            return Token(L"<<", TokenType::OperLShift, s_offset, m_offset, line);
         }
         else if (m_code[m_offset] == L'=')
         {
             GetChar();
-            return Token(L"<=", TokenType::OperLEqual);
+            return Token(L"<=", TokenType::OperLEqual, s_offset, m_offset, line);
         }
-        return Token(L"<", TokenType::OperLess);
+        return Token(L"<", TokenType::OperLess, s_offset, m_offset, line);
     case L'>':
         GetChar();
         if (m_code[m_offset] == L'>')
@@ -485,103 +528,103 @@ Token Tokenizer::ParseOperator()
             if (m_code[m_offset] == L'=')
             {
                 GetChar();
-                return Token(L">>=", TokenType::AssignRShift);
+                return Token(L">>=", TokenType::AssignRShift, s_offset, m_offset, line);
             }
-            return Token(L">>", TokenType::OperRShift);
+            return Token(L">>", TokenType::OperRShift, s_offset, m_offset, line);
         }
         else if (m_code[m_offset] == L'=')
         {
             GetChar();
-            return Token(L">=", TokenType::OperGEqual);
+            return Token(L">=", TokenType::OperGEqual, s_offset, m_offset, line);
         }
-        return Token(L">", TokenType::OperGreater);
+        return Token(L">", TokenType::OperGreater, s_offset, m_offset, line);
     case L'&':
         GetChar();
         if (m_code[m_offset] == L'&')
         {
             GetChar();
-            return Token(L"&&", TokenType::OperLAnd);
+            return Token(L"&&", TokenType::OperLAnd, s_offset, m_offset, line);
         }
         else if (m_code[m_offset] == L'=')
         {
             GetChar();
-            return Token(L"&=", TokenType::AssignBWAnd);
+            return Token(L"&=", TokenType::AssignBWAnd, s_offset, m_offset, line);
         }
-        return Token(L"&", TokenType::OperBWAnd);
+        return Token(L"&", TokenType::OperBWAnd, s_offset, m_offset, line);
     case L'|':
         GetChar();
         if (m_code[m_offset] == L'|')
         {
             GetChar();
-            return Token(L"||", TokenType::OperLOr);
+            return Token(L"||", TokenType::OperLOr, s_offset, m_offset, line);
         }
         else if (m_code[m_offset] == L'=')
         {
             GetChar();
-            return Token(L"|=", TokenType::AssignBWOr);
+            return Token(L"|=", TokenType::AssignBWOr, s_offset, m_offset, line);
         }
-        return Token(L"|", TokenType::OperBWOr);
+        return Token(L"|", TokenType::OperBWOr, s_offset, m_offset, line);
     case L'~':
         GetChar();
-        return Token(L"~", TokenType::OperNot);
+        return Token(L"~", TokenType::OperNot, s_offset, m_offset, line);
     case L'!':
         GetChar();
         if (m_code[m_offset] == L'=')
         {
             GetChar();
-            return Token(L"!=", TokenType::OperNEqual);
+            return Token(L"!=", TokenType::OperNEqual, s_offset, m_offset, line);
         }
-        return Token(L"!", TokenType::OperLNot);
+        return Token(L"!", TokenType::OperLNot, s_offset, m_offset, line);
     case L';':
         GetChar();
-        return Token(L";", TokenType::Semi);
+        return Token(L";", TokenType::Semi, s_offset, m_offset, line);
     case L'=':
         GetChar();
         if (m_code[m_offset] == L'=')
         {
             GetChar();
-            return Token(L"==", TokenType::OperEqual);
+            return Token(L"==", TokenType::OperEqual, s_offset, m_offset, line);
         }
-        return Token(L"=", TokenType::Assign);
+        return Token(L"=", TokenType::Assign, s_offset, m_offset, line);
 
     case L'{':
         GetChar();
-        return Token(L"{", TokenType::LBrace);
+        return Token(L"{", TokenType::LBrace, s_offset, m_offset, line);
     case L'}':
         GetChar();
-        return Token(L"}", TokenType::RBrace);
+        return Token(L"}", TokenType::RBrace, s_offset, m_offset, line);
 
     case L'(':
         GetChar();
-        return Token(L"(", TokenType::LParen);
+        return Token(L"(", TokenType::LParen, s_offset, m_offset, line);
     case L')':
         GetChar();
         if (m_code[m_offset] == L'!')
         {
             GetChar();
-            return Token(L")!", TokenType::PPEnd);
+            return Token(L")!", TokenType::PPEnd, s_offset, m_offset, line);
         }
-        return Token(L")", TokenType::RParen);
+        return Token(L")", TokenType::RParen, s_offset, m_offset, line);
 
     case L'[':
         GetChar();
-        return Token(L"[", TokenType::LBracket);
+        return Token(L"[", TokenType::LBracket, s_offset, m_offset, line);
     case L']':
         GetChar();
-        return Token(L"]", TokenType::RBracket);
+        return Token(L"]", TokenType::RBracket, s_offset, m_offset, line);
 
     case L'.':
         GetChar();
-        return Token(L".", TokenType::Dot);
+        return Token(L".", TokenType::Dot, s_offset, m_offset, line);
     case L',':
         GetChar();
-        return Token(L",", TokenType::Comma);
+        return Token(L",", TokenType::Comma, s_offset, m_offset, line);
     case L':':
         GetChar();
-        return Token(L":", TokenType::Colon);
+        return Token(L":", TokenType::Colon, s_offset, m_offset, line);
     case L'?':
         GetChar();
-        return Token(L"?", TokenType::Quest);
+        return Token(L"?", TokenType::Quest, s_offset, m_offset, line);
         // #!( PREPROCESSOR )!
     case L'#':
         GetChar();
@@ -591,7 +634,7 @@ Token Tokenizer::ParseOperator()
             if (m_code[m_offset == '('])
             {
                 GetChar();
-                return Token(L"#!(", TokenType::PPBegin);
+                return Token(L"#!(", TokenType::PPBegin, s_offset, m_offset, line);
             }
         }
         UnexpToken(L"Invalid preprocessor directive.");
@@ -617,7 +660,8 @@ Token Tokenizer::Next()
         prevCol = col;
         prevLine = line;
         prevOffset = m_offset;
-        return Token(L"EoF", TokenType::EoF);
+
+        return Token(L"EoF", TokenType::EoF, m_offset, m_offset, line);
     }
 
     SkipWhite();
@@ -629,7 +673,8 @@ Token Tokenizer::Next()
         prevCol = col;
         prevLine = line;
         prevOffset = m_offset;
-        return Token(L"EoF", TokenType::EoF);
+
+        return Token(L"EoF", TokenType::EoF, m_offset, m_offset, line);
     }
 
     SkipComments();
@@ -641,7 +686,8 @@ Token Tokenizer::Next()
         prevCol = col;
         prevLine = line;
         prevOffset = m_offset;
-        return Token(L"EoF", TokenType::EoF);
+
+        return Token(L"EoF", TokenType::EoF, m_offset, m_offset, line);
     }
 
     wchar_t s = m_code[m_offset];
@@ -651,10 +697,15 @@ Token Tokenizer::Next()
     if (s == L'"')
     {
         GetChar(); // remove "
+        auto r = ParseStringLiteral<StringType::Regular>();
         prevCol = col;
         prevLine = line;
         prevOffset = m_offset;
-        return ParseStringLiteral<StringType::Regular>();
+        if (line > files[m_cfile].EndLine)
+        {
+            ++m_cfile;
+        }
+        return r;
     }
 
     // @"(Raw string)"
@@ -665,10 +716,15 @@ Token Tokenizer::Next()
             GetChar(); // remove @
             GetChar(); // remove "
             GetChar(); // remove (
+            auto r = ParseStringLiteral<StringType::Raw>();
             prevCol = col;
             prevLine = line;
             prevOffset = m_offset;
-            return ParseStringLiteral<StringType::Raw>();
+            if (line > files[m_cfile].EndLine)
+            {
+                ++m_cfile;
+            }
+            return r;
         }
         else
         {
@@ -678,10 +734,15 @@ Token Tokenizer::Next()
 
     if (IsAlpha(s) || s == L'_')
     {
+        auto r = ParseName();
         prevCol = col;
         prevLine = line;
         prevOffset = m_offset;
-        return ParseName();
+        if (line > files[m_cfile].EndLine)
+        {
+            ++m_cfile;
+        }
+        return r;
     }
 
     if (IsNumber(s))
@@ -695,6 +756,10 @@ Token Tokenizer::Next()
         prevCol = col;
         prevLine = line;
         prevOffset = m_offset;
+        if (line > files[m_cfile].EndLine)
+        {
+            ++m_cfile;
+        }
         return r;
     }
 
@@ -703,6 +768,17 @@ Token Tokenizer::Next()
     prevCol = col;
     prevLine = line;
     prevOffset = m_offset;
+    if (line > files[m_cfile].EndLine)
+    {
+        ++m_cfile;
+    }
     return r;
+}
+
+Tokenizer::FileInfo::FileInfo(uint64_t s, uint64_t e, const String& n)
+{
+    StartLine = s;
+    EndLine = e;
+    Name = n;
 }
 

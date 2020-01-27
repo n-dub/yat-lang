@@ -21,11 +21,12 @@
 #include "Parser.h"
 #include "CodeGen.h"
 
-Compiler::Compiler(const String& inp, const String& outp, bool as)
+Compiler::Compiler(const String& inp, const String& outp, bool as, int opt)
 {
     m_input = inp;
     m_output = outp;
     m_as_outp = as;
+    m_opt_level = opt;
 }
 
 bool Compiler::Run()
@@ -61,7 +62,7 @@ bool Compiler::Run()
                 }
                 else
                 {
-                    tok->UnexpToken(L"invalid token in import statement\n");
+                    tok->UnexpToken(L"invalid token in import statement\n", &t);
                 }
             }
             try
@@ -89,8 +90,8 @@ bool Compiler::Run()
         AST tree;
         parser.Parse(tree);
 
-        // tree.DebugPrint();
-        // return true;
+        tree.DebugPrint();
+        return true;
 
         CodeGen cg(tree);
         // if (m_as_outp)

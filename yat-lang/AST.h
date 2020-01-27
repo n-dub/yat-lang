@@ -34,6 +34,8 @@ enum class NodeType
     ConstLeaf,
     // leaf node (variable)
     VarLeaf,
+    // leaf node (array)
+    ArrayLeaf,
     // statement block
     StBlock,
     // variable declaration
@@ -216,6 +218,7 @@ public:
     Var(String n, Keyword t, bool m = false, Range* a = nullptr);
     String name;
     Keyword var_type = Keyword::Last;
+    std::vector<Keyword> type_params;
     bool mut = false, is_arr = false, is_param = false;
     Range* arr = nullptr;
     ASTNode* initial = nullptr;
@@ -265,6 +268,20 @@ public:
     virtual Keyword GetTypeKW() override;
     virtual ASTNode* TryEval() override;
     virtual bool isConstEval();
+    virtual void AddTypeCvt();
+};
+
+class ArrayLeaf : public ASTNode
+{
+public:
+    ASTNode* idx{};
+    VarLeaf* arr{};
+    ArrayLeaf();
+    ArrayLeaf(Var* a, ASTNode* i);
+
+    virtual void DebugPrint(size_t d);
+    virtual ASTNode* TryEval();
+    virtual Keyword GetTypeKW();
     virtual void AddTypeCvt();
 };
 

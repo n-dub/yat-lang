@@ -85,14 +85,14 @@ ASTNode* BinOp::TryEval()
 #define OPER_CASE(_op)\
     switch (t)\
     {\
-    case Keyword::kw_i8:  return new ConstLeaf(Token(std::to_wstring(ln.ib _op rn.ib), TokenType::Int8L));\
-    case Keyword::kw_u8:  return new ConstLeaf(Token(std::to_wstring(ln.ub _op rn.ub), TokenType::Uint8L));\
-    case Keyword::kw_i16: return new ConstLeaf(Token(std::to_wstring(ln.iw _op rn.iw), TokenType::Int16L));\
-    case Keyword::kw_u16: return new ConstLeaf(Token(std::to_wstring(ln.uw _op rn.uw), TokenType::Uint16L));\
-    case Keyword::kw_i32: return new ConstLeaf(Token(std::to_wstring(ln.id _op rn.id), TokenType::Int32L));\
-    case Keyword::kw_u32: return new ConstLeaf(Token(std::to_wstring(ln.ud _op rn.ud), TokenType::Uint32L));\
-    case Keyword::kw_i64: return new ConstLeaf(Token(std::to_wstring(ln.iq _op rn.iq), TokenType::Int64L));\
-    case Keyword::kw_u64: return new ConstLeaf(Token(std::to_wstring(ln.uq _op rn.uq), TokenType::Uint64L));\
+    case Keyword::kw_i8:  return new ConstLeaf(Token(std::to_wstring(ln.ib _op rn.ib), TokenType::Int8L  , 0, 0, 0));\
+    case Keyword::kw_u8:  return new ConstLeaf(Token(std::to_wstring(ln.ub _op rn.ub), TokenType::Uint8L , 0, 0, 0));\
+    case Keyword::kw_i16: return new ConstLeaf(Token(std::to_wstring(ln.iw _op rn.iw), TokenType::Int16L , 0, 0, 0));\
+    case Keyword::kw_u16: return new ConstLeaf(Token(std::to_wstring(ln.uw _op rn.uw), TokenType::Uint16L, 0, 0, 0));\
+    case Keyword::kw_i32: return new ConstLeaf(Token(std::to_wstring(ln.id _op rn.id), TokenType::Int32L , 0, 0, 0));\
+    case Keyword::kw_u32: return new ConstLeaf(Token(std::to_wstring(ln.ud _op rn.ud), TokenType::Uint32L, 0, 0, 0));\
+    case Keyword::kw_i64: return new ConstLeaf(Token(std::to_wstring(ln.iq _op rn.iq), TokenType::Int64L , 0, 0, 0));\
+    case Keyword::kw_u64: return new ConstLeaf(Token(std::to_wstring(ln.uq _op rn.uq), TokenType::Uint64L, 0, 0, 0));\
     }
 
     switch (oper.type)
@@ -104,14 +104,14 @@ ASTNode* BinOp::TryEval()
         {
             switch (t)
             {
-            case Keyword::kw_i8:  return new ConstLeaf(Token(std::to_wstring(std::pow(ln.ib, rn.ib)), TokenType::Int8L));
-            case Keyword::kw_u8:  return new ConstLeaf(Token(std::to_wstring(std::pow(ln.ub, rn.ub)), TokenType::Uint8L));
-            case Keyword::kw_i16: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.iw, rn.iw)), TokenType::Int16L));
-            case Keyword::kw_u16: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.uw, rn.uw)), TokenType::Uint16L));
-            case Keyword::kw_i32: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.id, rn.id)), TokenType::Int32L));
-            case Keyword::kw_u32: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.ud, rn.ud)), TokenType::Uint32L));
-            case Keyword::kw_i64: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.iq, rn.iq)), TokenType::Int64L));
-            case Keyword::kw_u64: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.uq, rn.uq)), TokenType::Uint64L));
+            case Keyword::kw_i8:  return new ConstLeaf(Token(std::to_wstring(std::pow(ln.ib, rn.ib)), TokenType::Int8L, 0, 0, 0));
+            case Keyword::kw_u8:  return new ConstLeaf(Token(std::to_wstring(std::pow(ln.ub, rn.ub)), TokenType::Uint8L, 0, 0, 0));
+            case Keyword::kw_i16: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.iw, rn.iw)), TokenType::Int16L, 0, 0, 0));
+            case Keyword::kw_u16: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.uw, rn.uw)), TokenType::Uint16L, 0, 0, 0));
+            case Keyword::kw_i32: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.id, rn.id)), TokenType::Int32L, 0, 0, 0));
+            case Keyword::kw_u32: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.ud, rn.ud)), TokenType::Uint32L, 0, 0, 0));
+            case Keyword::kw_i64: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.iq, rn.iq)), TokenType::Int64L, 0, 0, 0));
+            case Keyword::kw_u64: return new ConstLeaf(Token(std::to_wstring(std::pow(ln.uq, rn.uq)), TokenType::Uint64L, 0, 0, 0));
             }
         }
         case TokenType::OperDiv:   OPER_CASE(/);
@@ -131,7 +131,25 @@ void BinOp::AddTypeCvt()
 {
     l->AddTypeCvt();
     r->AddTypeCvt();
+
     size_t sl = GetTypeSize(l->GetTypeKW()), sr = GetTypeSize(r->GetTypeKW());
+    if (oper.type == TokenType::OperDiv ||
+       (oper.type == TokenType::OperMul && !IsSigned(GetTypeKW())))
+    {
+        if (sl != 8)
+        {
+            l = new Convert(l, IsSigned(l->GetTypeKW())
+                ? Keyword::kw_i64
+                : Keyword::kw_u64);
+        }
+        if (sr != 8)
+        {
+            r = new Convert(r, IsSigned(r->GetTypeKW())
+                ? Keyword::kw_i64
+                : Keyword::kw_u64);
+        }
+        return;
+    }
 
     if (sl < sr)
     {
@@ -152,7 +170,7 @@ VarLeaf::VarLeaf(Var* data)
 void VarLeaf::DebugPrint(size_t d)
 {
     AddTabs(d);
-    std::wcout << L"Variable " << (data->mut ? L"mut " : L"")
+    std::wcout << (data->is_arr ? L"Array " : L"Variable ") << (data->mut ? L"mut " : L"")
         << KeywordStr[(int)data->var_type] << L" " << data->name << L"\n";
 }
 
@@ -168,7 +186,7 @@ ASTNode* VarLeaf::TryEval()
 
 bool VarLeaf::isConstEval()
 {
-    return !data->mut;
+    return false;
 }
 
 void VarLeaf::AddTypeCvt()
@@ -683,5 +701,45 @@ Keyword Convert::GetTypeKW()
 
 void Convert::AddTypeCvt()
 {
+}
+
+ArrayLeaf::ArrayLeaf()
+{
+    type = NodeType::ArrayLeaf;
+}
+
+ArrayLeaf::ArrayLeaf(Var* a, ASTNode* i)
+{
+    arr = new VarLeaf(a);
+    idx = i;
+    type = NodeType::ArrayLeaf;
+}
+
+void ArrayLeaf::DebugPrint(size_t d)
+{
+    AddTabs(d);
+    std::wcout << L"Array:\n";
+    arr->DebugPrint(d + 1);
+    AddTabs(d);
+    std::wcout << L"Element with index:\n";
+    idx->DebugPrint(d + 1);
+}
+
+ASTNode* ArrayLeaf::TryEval()
+{
+    idx->TryEval();
+    arr->TryEval();
+    return this;
+}
+
+Keyword ArrayLeaf::GetTypeKW()
+{
+    return arr->GetTypeKW();
+}
+
+void ArrayLeaf::AddTypeCvt()
+{
+    idx->AddTypeCvt();
+    arr->AddTypeCvt();
 }
 

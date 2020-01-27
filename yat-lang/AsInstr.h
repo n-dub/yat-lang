@@ -103,5 +103,5 @@ struct AsInstr
     void SwapOperands();
 };
 
-AsInstr::Instr TTypeToInstr(TokenType type);
+AsInstr::Instr TTypeToInstr(TokenType type, bool sign = true);
 

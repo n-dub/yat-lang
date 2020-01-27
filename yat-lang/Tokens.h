@@ -232,7 +232,7 @@ class Token
 {
 public:
     Token() = default;
-    Token(const String& d, TokenType t, Keyword kw = Keyword::Last)
+    Token(const String& d, TokenType t, uint64_t start, uint64_t end, uint64_t line, Keyword kw = Keyword::Last)
     {
         if (kw != Keyword::Last)
         {
@@ -245,61 +245,24 @@ public:
 
         kw_type = kw;
         data = d;
+        this->start = start;
+        this->line = line;
+        this->end = end;
     }
 
     String data{};
     TokenType type{};
     Keyword kw_type{};
+    uint64_t start{}, end{}, line{};
 };
 
-struct OperPrec
-{
-    OperPrec(int p)
-    {
-        prec = p;
-    }
-
-    bool operator<(const OperPrec& p)
-    {
-        return prec < p.prec;
-    }
-
-    bool operator>(const OperPrec& p)
-    {
-        return prec > p.prec;
-    }
-
-    bool operator<=(const OperPrec& p)
-    {
-        return prec <= p.prec;
-    }
-
-    bool operator>=(const OperPrec& p)
-    {
-        return prec >= p.prec;
-    }
-
-    bool operator==(const OperPrec& p)
-    {
-        return prec == p.prec;
-    }
-
-    bool operator!=(const OperPrec& p)
-    {
-        return prec != p.prec;
-    }
-
-    // precedence of the operation
-    int prec = 0;
-};
-
-inline OperPrec GetPrecedence(TokenType oper, bool unary);
-inline bool IsNumber(TokenType type);
-inline bool IsNumber(Keyword kw);
-inline bool IsBinaryOp(TokenType type);
-inline Keyword TTypeToKeyword(TokenType t);
-inline size_t GetTypeSize(Keyword kw);
+int GetPrecedence(TokenType oper, bool unary);
+bool IsNumber(TokenType type);
+bool IsNumber(Keyword kw);
+bool IsBinaryOp(TokenType type);
+Keyword TTypeToKeyword(TokenType t);
+size_t GetTypeSize(Keyword kw);
 // returns EoF if invalid token type has been passed
-inline TokenType NegateLOp(TokenType op);
-inline bool IsSigned(Keyword type);
+TokenType NegateLOp(TokenType op);
+bool IsSigned(Keyword type);
 

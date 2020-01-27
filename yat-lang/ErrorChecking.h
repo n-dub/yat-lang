@@ -21,19 +21,29 @@
 
 class UnexpectedToken : public Error
 {
-    inline String GenString(uint64_t len, uint64_t col)
+    inline String GenString(const String& str, uint64_t cs, uint64_t ce)
     {
-        String res;
-        res.reserve(len);
-        for (int i = 0; i < len; ++i)
+        if (cs == ce)
         {
-            if (i == col)
+            cs = 0;
+            ce = str.length();
+        }
+
+        String res;
+        res.reserve(ce - cs);
+        for (int i = 0; i < ce; ++i)
+        {
+            if (i >= cs)
             {
-                res += L'^';
+                res += L'~';
+            }
+            else if (str[i] == L'\t')
+            {
+                res += L"    ";
             }
             else
             {
-                res += L'~';
+                res += L" ";
             }
         }
 
@@ -42,9 +52,14 @@ class UnexpectedToken : public Error
     }
 
 public:
-    UnexpectedToken(uint64_t line, uint64_t c, const String& info, const String& code_line = L"")
-        : Error(L"\nUnexpected token:\n" + info + L"\nAt line #" + std::to_wstring(line)
-            + L", character #" + std::to_wstring(c) + L"\n\n" + code_line + L"\n" + GenString(code_line.length(), c))
+    UnexpectedToken(uint64_t line,
+        const String& info,
+        const String& code_line,
+        uint64_t cs,
+        uint64_t ce,
+        const String& file)
+        : Error(L"\nUnexpected token in file `" + file + L"':\n" + info + L"\nAt line #" + std::to_wstring(line)
+            + L"\n\n" + code_line + L"\n" + GenString(code_line, cs, ce))
     {
     }
 };

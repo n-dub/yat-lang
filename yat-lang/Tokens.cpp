@@ -54,12 +54,13 @@ const wchar_t* KeywordStr[]{
     L"base",
     L"new",
     L"_asm",
+    L"rng",
     L"in",
     L"as",
-    L"rng"
+    L"Last"
 };
 
-OperPrec GetPrecedence(TokenType oper, bool unary)
+int GetPrecedence(TokenType oper, bool unary)
 {
     switch (oper)
     {
@@ -75,65 +76,65 @@ OperPrec GetPrecedence(TokenType oper, bool unary)
     case TokenType::AssignBWAnd:
     case TokenType::AssignBWOr:
     case TokenType::AssignXor:
-        return OperPrec(10);
+        return 10;
 
     case TokenType::OperPlus:
-        return OperPrec(26);
+        return 26;
     case TokenType::OperMin:
-        return unary ? OperPrec(29) : OperPrec(26);
+        return unary ? 29 : 26;
     case TokenType::OperMul:
-        return OperPrec(27);
+        return 27;
     case TokenType::OperPow:
-        return OperPrec(28);
+        return 28;
     case TokenType::OperDiv:
-        return OperPrec(27);
+        return 27;
     case TokenType::OperPCent:
-        return OperPrec(27);
+        return 27;
     case TokenType::OperInc:
     case TokenType::OperDec:
-        return unary ? OperPrec(29) : OperPrec(50);
+        return unary ? 29 : 50;
     case TokenType::OperLShift:
-        return OperPrec(25);
+        return 25;
     case TokenType::OperRShift:
-        return OperPrec(25);
+        return 25;
     case TokenType::OperBWAnd:
-        return OperPrec(22);
+        return 22;
     case TokenType::OperBWOr:
-        return OperPrec(20);
+        return 20;
     case TokenType::OperNot:
-        return OperPrec(30);
+        return 30;
     case TokenType::OperXor:
-        return OperPrec(23);
+        return 23;
 
     case TokenType::OperLess:
-        return OperPrec(24);
+        return 24;
     case TokenType::OperGreater:
-        return OperPrec(24);
+        return 24;
     case TokenType::OperEqual:
-        return OperPrec(23);
+        return 23;
     case TokenType::OperNEqual:
-        return OperPrec(23);
+        return 23;
     case TokenType::OperLEqual:
-        return OperPrec(24);
+        return 24;
     case TokenType::OperGEqual:
-        return OperPrec(24);
+        return 24;
 
     case TokenType::OperLAnd:
-        return unary ? OperPrec(60) : OperPrec(19);
+        return unary ? 60 : 19;
     case TokenType::OperLOr:
-        return OperPrec(18);
+        return 18;
     case TokenType::OperLNot:
-        return OperPrec(30);
+        return 30;
 
     case TokenType::LBracket:
-        return OperPrec(0);
+        return 0;
     case TokenType::LParen:
-        return OperPrec(0);
+        return 0;
 
     case TokenType::Dot:
-        return OperPrec(40);
+        return 40;
     }
-    return OperPrec(0);
+    return 0;
 }
 
 bool IsNumber(TokenType type)
@@ -261,6 +262,43 @@ size_t GetTypeSize(Keyword kw)
         return 8;
     }
     return 0;
+}
+
+Keyword MakeSigned(Keyword kw)
+{
+    switch (kw)
+    {
+    case Keyword::kw_u8:
+        return Keyword::kw_i8;
+    case Keyword::kw_u16:
+        return Keyword::kw_i16;
+    case Keyword::kw_u32:
+        return Keyword::kw_i32;
+    case Keyword::kw_u64:
+        return Keyword::kw_i64;
+    }
+    return kw;
+}
+
+Keyword MakeUnsigned(Keyword kw)
+{
+    switch (kw)
+    {
+    case Keyword::kw_i8:
+        return Keyword::kw_u8;
+    case Keyword::kw_i16:
+        return Keyword::kw_u16;
+    case Keyword::kw_i32:
+        return Keyword::kw_u32;
+    case Keyword::kw_i64:
+        return Keyword::kw_u64;
+    }
+    return kw;
+}
+
+Keyword RevertSign(Keyword kw)
+{
+    return IsSigned(kw) ? MakeUnsigned(kw) : MakeSigned(kw);
 }
 
 TokenType NegateLOp(TokenType op)

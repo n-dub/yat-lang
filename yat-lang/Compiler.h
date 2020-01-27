@@ -24,8 +24,9 @@ class Compiler
 {
     String m_output, m_input, m_error;
     bool m_as_outp;
+    int m_opt_level;
 public:
-    Compiler(const String& inp, const String& outp, bool as);
+    Compiler(const String& inp, const String& outp, bool as, int opt);
     bool Run();
     String GetError();
 };

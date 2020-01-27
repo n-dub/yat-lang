@@ -2,12 +2,12 @@ nspace system.io
 {
 	str16 mut tempmessage;
 	#!(unsafe)!
-	fn print = str16 msg -> null {
+	fn Print = str16 msg -> null {
 		tempmessage = msg;
 		// inline assembly
 		// ret is not required
 		// TODO: call setlocale() somewhere else
-		_asm() {
+		_asm {
 .data
 m0:
 	.ascii "\0"
@@ -22,6 +22,11 @@ fmtstr:
 	leaq      fmtstr, %rcx
 	call      printf
 		}
+	};
+
+	#!(unsafe)!
+	fn Read = () -> str16 {
+		ret ""
 	};
 }
 
