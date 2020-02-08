@@ -59,22 +59,27 @@ bool Tokenizer::IsNumValid(const Token& t)
     switch (t.type)
     {
     case TokenType::Int8L:
-        return IntToString(StringToInt<int8_t>(t.data)) == t.data;
+        return IntToString(StringToNum<int8_t>(t.data)) == t.data;
     case TokenType::Int16L:
-        return IntToString(StringToInt<int16_t>(t.data)) == t.data;
+        return IntToString(StringToNum<int16_t>(t.data)) == t.data;
     case TokenType::Int32L:
-        return IntToString(StringToInt<int32_t>(t.data)) == t.data;
+        return IntToString(StringToNum<int32_t>(t.data)) == t.data;
     case TokenType::Int64L:
-        return IntToString(StringToInt<int64_t>(t.data)) == t.data;
+        return IntToString(StringToNum<int64_t>(t.data)) == t.data;
 
     case TokenType::Uint8L:
-        return IntToString(StringToInt<uint8_t>(t.data)) == t.data;
+        return IntToString(StringToNum<uint8_t>(t.data)) == t.data;
     case TokenType::Uint16L:
-        return IntToString(StringToInt<uint16_t>(t.data)) == t.data;
+        return IntToString(StringToNum<uint16_t>(t.data)) == t.data;
     case TokenType::Uint32L:
-        return IntToString(StringToInt<uint32_t>(t.data)) == t.data;
+        return IntToString(StringToNum<uint32_t>(t.data)) == t.data;
     case TokenType::Uint64L:
-        return IntToString(StringToInt<uint64_t>(t.data)) == t.data;
+        return IntToString(StringToNum<uint64_t>(t.data)) == t.data;
+
+    case TokenType::Float32L:
+        return IntToString(StringToNum<float>(t.data)) == t.data;
+    case TokenType::Float64L:
+        return IntToString(StringToNum<double>(t.data)) == t.data;
 
     default:
         return false;
@@ -166,7 +171,7 @@ String Tokenizer::ParseNumber()
 
     wchar_t c = m_code[m_offset];
 
-    while (IsNumber(c) || c == L'_')
+    while (IsNumber(c) || c == L'_' || c == L'.')
     {
         if (c != L'_') r += c;
         GetChar();
@@ -242,7 +247,27 @@ Token Tokenizer::ParseNumberLiteral()
         }
         UnexpToken(L"\"u\" after a number literal must be followed by number of bits (8, 16, 32 or 64).");
     }
-    auto t = Token(r, TokenType::Int32L, s_offset, m_offset, line);
+    if (m_code[m_offset] == L'f')
+    {
+        ++m_offset;
+        String bits = ParseNumber();
+        if (bits == L"32")
+        {
+            auto t = Token(r, TokenType::Float32L, s_offset, m_offset, line);
+            SkipWhite();
+            return t;
+        }
+        if (bits == L"64")
+        {
+            auto t = Token(r, TokenType::Float64L, s_offset, m_offset, line);
+            SkipWhite();
+            return t;
+        }
+        UnexpToken(L"\"f\" after a floating-point number literal must be followed by number of bits (32 or 64).");
+    }
+    auto t = Token(r, 
+        r.find_first_of(L'.') == String::npos ? TokenType::Int32L : TokenType::Float64L,
+        s_offset, m_offset, line);
     SkipWhite();
     return t;
 }

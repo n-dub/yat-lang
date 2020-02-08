@@ -102,7 +102,7 @@ AsInstr::AsInstr(const String& inl, bool lab)
     isLabel = lab;
 }
 
-String AsInstr::GenText()
+String AsInstr::GenText(int opt)
 {
     if (instr == Instr::Last)
     {
@@ -110,62 +110,91 @@ String AsInstr::GenText()
     }
 
     String res = L"";
-    res += InstrStr[(size_t)instr];
-    res += SuffixStr[(size_t)suf];
-    res += SuffixStr[(size_t)suf0];
-    res += SuffixStr[(size_t)suf1];
 
-    for (int i = res.length(); i < 10; ++i)
+    if (opt == 0)
     {
-        res += L" ";
+        res += InstrStr[(size_t)instr];
+        res += SuffixStr[(size_t)suf];
+        res += SuffixStr[(size_t)suf0];
+        res += SuffixStr[(size_t)suf1];
+
+        for (int i = res.length(); i < 10; ++i)
+        {
+            res += L" ";
+        }
     }
 
-    switch (oper1)
+    if (opt == 1 || opt == 0)
     {
-    case AsInstr::Operands::Reg:
-        res += L"%";
-        res += RegisterStr[(size_t)reg1];
-        break;
-    case AsInstr::Operands::Stack:
-        res += std::to_wstring(mem1);
-        res += L"(%";
-        res += RegisterStr[(size_t)stackReg];
-        res += L")";
-        break;
-    case AsInstr::Operands::Label:
-        res += l1;
-        break;
-    case AsInstr::Operands::Const:
-        res += L"$";
-        res += l1;
-        break;
+        switch (oper1)
+        {
+        case AsInstr::Operands::Addr:
+            res += l1;
+            res += L"(, ";
+            res += L"%";
+            res += RegisterStr[(size_t)reg1];
+            res += L", ";
+            res += std::to_wstring(mem1);
+            res += L")";
+            break;
+        case AsInstr::Operands::Reg:
+            res += L"%";
+            res += RegisterStr[(size_t)reg1];
+            break;
+        case AsInstr::Operands::Stack:
+            res += std::to_wstring(mem1);
+            res += L"(%";
+            res += RegisterStr[(size_t)stackReg];
+            res += L")";
+            break;
+        case AsInstr::Operands::Label:
+            res += l1;
+            break;
+        case AsInstr::Operands::Const:
+            res += L"$";
+            res += l1;
+            break;
+        }
     }
 
-    switch (oper2)
+    if (opt == 2 || opt == 0)
     {
-    case AsInstr::Operands::Reg:
-        res += L", %";
-        res += RegisterStr[(size_t)reg2];
-        break;
-    case AsInstr::Operands::Stack:
-        res += L", ";
-        res += std::to_wstring(mem2);
-        res += L"(%";
-        res += RegisterStr[(size_t)stackReg];
-        res += L")";
-        break;
-    case AsInstr::Operands::Label:
-        res += L", ";
-        res += l2;
-        break;
-    case AsInstr::Operands::Const:
-        res += L", ";
-        res += L"$";
-        res += l2;
-        break;
+        switch (oper2)
+        {
+        case AsInstr::Operands::Addr:
+            res += L", ";
+            res += l2;
+            res += L"(, ";
+            res += L"%";
+            res += RegisterStr[(size_t)reg2];
+            res += L", ";
+            res += std::to_wstring(mem2);
+            res += L")";
+            break;
+        case AsInstr::Operands::Reg:
+            res += L", %";
+            res += RegisterStr[(size_t)reg2];
+            break;
+        case AsInstr::Operands::Stack:
+            res += L", ";
+            res += std::to_wstring(mem2);
+            res += L"(%";
+            res += RegisterStr[(size_t)stackReg];
+            res += L")";
+            break;
+        case AsInstr::Operands::Label:
+            res += L", ";
+            res += l2;
+            break;
+        case AsInstr::Operands::Const:
+            res += L", ";
+            res += L"$";
+            res += l2;
+            break;
+        }
     }
 
-    return res + L"\n";
+    return (opt == 0 ? res + L"\n" : res);
 }
 
 void AsInstr::SetSizeSuffix(size_t bytes)

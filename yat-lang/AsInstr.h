@@ -87,6 +87,8 @@ struct AsInstr
         Stack,
         Label,
         Const,
+        // l1(, %reg1, mem1)
+        Addr,
         Last
     } oper1 = Operands::Last, oper2 = Operands::Last;
 
@@ -98,7 +100,10 @@ struct AsInstr
     AsInstr() = default;
     AsInstr(const String& inl, bool lab = false);
 
-    String GenText();
+    // opt = 0: entire instruction
+    // opt = 1: oper1
+    // opt = 2: oper2
+    String GenText(int opt = 0);
     void SetSizeSuffix(size_t bytes);
     void SwapOperands();
 };

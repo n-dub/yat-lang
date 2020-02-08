@@ -97,7 +97,8 @@ public:
     virtual void DebugPrint(size_t d) override;
     virtual Keyword GetTypeKW() override;
     virtual ASTNode* TryEval() override;
-    size_t GetSize();
+    int64_t GetSize();
+    int64_t GetStart();
     virtual void AddTypeCvt();
 };
 

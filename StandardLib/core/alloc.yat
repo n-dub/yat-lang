@@ -15,64 +15,37 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
-nspace system.io
+nspace alloc
 {
-	#!(unsafe)!
-	fn PrintStr = str16 msg -> null {
-		let a = 0;
-		// TODO: call setlocale() somewhere else
-		_asm {
-.data
-m0:
-	.ascii "\0"
-fmtstr0:
-	.ascii "%ls\0"
-.text
-	leaq      m0, %rdx
-	movl      $0, %ecx
-	call      setlocale
-	
-	movq      @LVAR(system.io.msg), %rdx
-	leaq      fmtstr0, %rcx
-	call      printf
-	xor       %rax, %rax
-		}
-	};
-
-	#!(unsafe)!
-	fn PrintInt = i64 n -> null {
+	fn malloc = i32 size -> u64 {
 		let a = 0;
 		_asm {
-.data
-fmtstr1:
-	.ascii "%lli\0"
-.text
-	movq      @LVAR(system.io.n), %rdx
-	leaq      fmtstr1, %rcx
-	call      printf
-	xor       %rax, %rax
+	movl @LVAR(size), %ecx
+	call malloc
+	leave
+	ret
 		}
 	};
 
-	#!(unsafe)!
-	fn ReadStr = () -> str16 {
-		ret ""
-	};
-
-	#!(unsafe)!
-	fn ReadInt = () -> i64 {
-		let t = 0i64;
+	u64 mut tempptr;
+	fn dealloc = u64 ptr -> null {
+		let a = 0;
 		_asm {
-.data
-fmtstr2:
-	.ascii "%lli\0"
-.text
-	leaq      @LVAR(system.io.t), %rdx
-	leaq      fmtstr2, %rcx
-	call      scanf
-	xor       %rax, %rax
+	movq @LVAR(alloc.ptr), %rcx
+	call free
+	xorq %rax, %rax
 		}
-		ret t
+	};
+
+	fn realloc = (u64 ptr, i32 size) -> u64 {
+		let a = 0;
+		_asm {
+	movl @LVAR(alloc.size), %edx
+	movq @LVAR(alloc.ptr), %rcx
+	call realloc
+	leave
+	ret
+		}
 	};
 }
 

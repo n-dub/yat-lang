@@ -90,8 +90,8 @@ bool Compiler::Run()
         AST tree;
         parser.Parse(tree);
 
-        tree.DebugPrint();
-        return true;
+        // tree.DebugPrint();
+        // return true;
 
         CodeGen cg(tree);
         // if (m_as_outp)

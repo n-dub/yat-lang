@@ -16,6 +16,7 @@
 //
 #include "CodeGen.h"
 #include <algorithm>
+#include "ErrorChecking.h"
 
 inline Register CodeGen::TryAllocRegister(bool fp, size_t bytes)
 {
@@ -279,6 +280,14 @@ inline AsInstr CodeGen::MakeMov(const VisitRes& from, const VisitRes& to, const 
         mov_in.l1 = from.gData->name;
         break;
     }
+    case VisitRes::arr:
+    {
+        mov_in.oper1 = AsInstr::Operands::Addr;
+        mov_in.l1 = from.aData->gData->name;
+        mov_in.reg1 = from.iData->rData;
+        mov_in.mem1 = op_size;
+        break;
+    }
     case VisitRes::loc:
     {
         mov_in.oper1 = AsInstr::Operands::Stack;
@@ -314,6 +323,14 @@ inline AsInstr CodeGen::MakeMov(const VisitRes& from, const VisitRes& to, const 
     {
         mov_in.oper2 = AsInstr::Operands::Label;
         mov_in.l2 = to.gData->name;
+        break;
+    }
+    case VisitRes::arr:
+    {
+        mov_in.oper2 = AsInstr::Operands::Addr;
+        mov_in.l2 = to.aData->gData->name;
+        mov_in.reg2 = to.iData->rData;
+        mov_in.mem2 = op_size;
         break;
     }
     case VisitRes::loc:
@@ -639,7 +656,51 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
             if (op->oper.kw_type == Keyword::kw_asm)
             {
                 ConstLeaf* asm_text = (ConstLeaf*)op->operand;
-                res.push_back(AsInstr(asm_text->data.data));
+                const String& inl = asm_text->data.data;
+                std::wstringstream asm_res;
+
+                wchar_t c = 0;
+                for (size_t i = 0; i < inl.length(); ++i)
+                {
+                    c = inl[i];
+                    if (c == L'@')
+                    {
+                        c = inl[++i];
+                        String cmd;
+                        while (IsAlpha(c))
+                        {
+                            cmd += c;
+                            c = inl[++i];
+                        }
+
+                        if (cmd == L"LVAR")
+                        {
+                            if (inl[i++] != L'(')
+                            {
+                                throw Error(L"Invalid inline assembly macro LVAR\n");
+                            }
+
+                            cmd = L"";
+                            c = inl[i];
+                            while (c != L')')
+                            {
+                                cmd += c;
+                                c = inl[++i];
+                            }
+                            auto var = GetLocal(new Var(cmd, Keyword::Last));
+                            AsInstr addr;
+                            addr.mem1 = var.offset;
+                            addr.oper1 = AsInstr::Operands::Stack;
+                            asm_res << addr.GenText(1);
+                        }
+                    }
+                    else
+                    {
+                        asm_res << c;
+                    }
+                }
+
+                res.push_back(AsInstr(asm_res.str()));
                 return VisitRes();
             }
 
@@ -756,7 +817,9 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
         VisitRes left_vis = VisitNode(op->l, glob, res);
         VisitRes right_vis = VisitNode(op->r, glob, res);
 
-        size_t op_size  = GetTypeSize(op->GetTypeKW());
+        size_t op_size = std::max(
+            GetTypeSize(op->l->GetTypeKW()),
+            GetTypeSize(op->r->GetTypeKW()));
 
         /*
         left <op> right
@@ -819,6 +882,14 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
         {
             inst.oper1 = AsInstr::Operands::Const;
             inst.l1 = left_vis.cData->data.data;
+            break;
+        }
+        case VisitRes::arr:
+        {
+            inst.oper1 = AsInstr::Operands::Addr;
+            inst.l1 = left_vis.aData->gData->name;
+            inst.reg1 = left_vis.iData->rData;
+            inst.mem1 = op_size;
             break;
         }
         }
@@ -946,6 +1017,37 @@ CodeGen::VisitRes CodeGen::VisitNode(ASTNode* node, bool glob, std::vector<AsIns
         locals.pop_back(); // pop param list
         return VisitRes(label);
     }
+    case NodeType::ArrayLeaf:
+    {
+        ArrayLeaf* arr = (ArrayLeaf*)node;
+        auto idx_vis = VisitNode(arr->idx, glob, res);
+        if (idx_vis.type != VisitRes::reg)
+        {
+            Register temp = TryAllocRegister(false, 8);
+            res.push_back(MakeMov(idx_vis, temp, 8));
+            idx_vis = temp;
+        }
+
+        int64_t start = arr->arr->data->arr->GetStart();
+        if (start)
+        {
+            AsInstr sub_in;
+            sub_in.SetSizeSuffix(8);
+            sub_in.instr = AsInstr::Instr::as_sub;
+
+            sub_in.oper2 = AsInstr::Operands::Reg;
+            sub_in.reg2 = idx_vis.rData;
+
+            sub_in.oper1 = AsInstr::Operands::Const;
+            sub_in.l1 = std::to_wstring(start);
+            res.push_back(sub_in);
+        }
+
+        return VisitRes(
+            new VisitRes(&VisitNode(arr->arr, glob, res)),
+            new VisitRes(&idx_vis)
+        );
+    }
     }
 
     return VisitRes();
@@ -1008,7 +1110,17 @@ void CodeGen::WriteCode(const String& path)
 
     for (Var* g : globals)
     {
-        stream << g->name << L":\n\t.zero " << GetTypeSize(g->GetTypeKW()) << L"\n";
+        stream << g->name << L":\n\t.zero ";
+        if (g->is_arr)
+        {
+            int64_t mult = g->arr->GetSize();
+
+            stream << GetTypeSize(g->GetTypeKW()) * mult << L"\n";
+        }
+        else
+        {
+            stream << GetTypeSize(g->GetTypeKW()) << L"\n";
+        }
     }
 
     stream << L".text\n";
@@ -1089,5 +1201,25 @@ CodeGen::VisitRes::VisitRes(const TokenType b)
 {
     bData = b;
     type = cond;
+}
+
+CodeGen::VisitRes::VisitRes(VisitRes* var, VisitRes* idx)
+{
+    aData = var;
+    iData = idx;
+    type = arr;
+}
+
+CodeGen::VisitRes::VisitRes(VisitRes* vr)
+{
+    type = vr->type;
+    rData = vr->rData;
+    gData = vr->gData;
+    cData = vr->cData;
+    lData = vr->lData;
+    fData = vr->fData;
+    bData = vr->bData;
+    iData = vr->iData;
+    aData = vr->aData;
 }
 

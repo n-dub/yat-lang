@@ -289,6 +289,7 @@ StatementBlock* Parser::ParseBlock(bool is_fn)
                 r->children.push_back(res);
 
                 NEXT_TOK;
+                NEXT_TOK;
 
                 break;
             }

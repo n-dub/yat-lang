@@ -226,14 +226,14 @@ ConstLeaf::GetNumRes ConstLeaf::GetNumber()
 
     switch (GetTypeKW())
     {
-    case Keyword::kw_i8: res.ib = StringToInt<int8_t>(data.data);
-    case Keyword::kw_u8: res.ub = StringToInt<uint8_t>(data.data);
-    case Keyword::kw_i16: res.iw = StringToInt<int16_t>(data.data);
-    case Keyword::kw_u16: res.uw = StringToInt<uint16_t>(data.data);
-    case Keyword::kw_i32: res.id = StringToInt<int32_t>(data.data);
-    case Keyword::kw_u32: res.ud = StringToInt<uint32_t>(data.data);
-    case Keyword::kw_i64: res.iq = StringToInt<int64_t>(data.data);
-    case Keyword::kw_u64: res.uq = StringToInt<uint64_t>(data.data);
+    case Keyword::kw_i8: res.ib = StringToNum<int8_t>(data.data);
+    case Keyword::kw_u8: res.ub = StringToNum<uint8_t>(data.data);
+    case Keyword::kw_i16: res.iw = StringToNum<int16_t>(data.data);
+    case Keyword::kw_u16: res.uw = StringToNum<uint16_t>(data.data);
+    case Keyword::kw_i32: res.id = StringToNum<int32_t>(data.data);
+    case Keyword::kw_u32: res.ud = StringToNum<uint32_t>(data.data);
+    case Keyword::kw_i64: res.iq = StringToNum<int64_t>(data.data);
+    case Keyword::kw_u64: res.uq = StringToNum<uint64_t>(data.data);
     }
 
     return res;
@@ -520,20 +520,25 @@ ASTNode* Range::TryEval()
     return this;
 }
 
-size_t Range::GetSize()
+int64_t Range::GetSize()
 {
-    int64_t res = r->GetNumber().iq - l->GetNumber().iq;
+    int64_t res = r->GetNumber().iq - l->GetNumber().iq - 1;
 
     if (flags & LeftInclusive)
     {
-        --res;
+        ++res;
     }
     if (flags & RightInclusive)
     {
-        --res;
+        ++res;
     }
 
     return res;
+}
+
+int64_t Range::GetStart()
+{
+    return (flags & LeftInclusive ? l->GetNumber().iq : l->GetNumber().iq + 1);
 }
 
 void Range::AddTypeCvt()
@@ -739,6 +744,11 @@ Keyword ArrayLeaf::GetTypeKW()
 
 void ArrayLeaf::AddTypeCvt()
 {
+    if (GetTypeSize(idx->GetTypeKW()) != 8)
+    {
+        idx = new Convert(idx, Keyword::kw_i64);
+    }
+
     idx->AddTypeCvt();
     arr->AddTypeCvt();
 }

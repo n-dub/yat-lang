@@ -77,6 +77,8 @@ class CodeGen
             func,
             // condition (boolean)
             cond,
+            // array element
+            arr,
             // no return
             none
         } type = none;
@@ -90,10 +92,14 @@ class CodeGen
         VisitRes(Var* g);
         // local
         VisitRes(const LocalVar& l);
-        // 
+        // function
         VisitRes(const String& f);
         // boolean
         VisitRes(const TokenType b);
+        // global array
+        VisitRes(VisitRes* var, VisitRes* idx);
+
+        VisitRes(VisitRes* vr);
 
         Register rData{};
         Var* gData{};
@@ -101,6 +107,7 @@ class CodeGen
         LocalVar lData{};
         String fData{};
         TokenType bData{};
+        VisitRes *iData{}, *aData{};
     };
 
     struct _regs
@@ -127,7 +134,7 @@ class CodeGen
 
     void VisitNSpace(Namespace* ns);
     void VisitBlock(StatementBlock* b, bool glob, std::vector<AsInstr>& res);
-    VisitRes VisitNode(ASTNode* node, bool glob, std::vector<AsInstr>& res);
+    VisitRes VisitNode(ASTNode* node,  bool glob, std::vector<AsInstr>& res);
 
 public:
     CodeGen(AST& ast);
